@@ -1,10 +1,10 @@
-# Cómo contribuir a KBOL
+# Contributing to KBOL
 
-KBOL lo mantiene una sola persona y su prioridad es que lo que afirma sea cierto. Antes de proponer una capacidad nueva, abre una incidencia de propuesta para discutirla. Los errores y las mejoras de lo que ya existe son bienvenidos directamente.
+KBOL is maintained by one person and its priority is that what it claims is true. Before proposing a new capability, open a proposal issue to discuss it. Bug reports and improvements to what already exists are welcome directly.
 
-## Entorno
+## Environment
 
-Hace falta [uv](https://docs.astral.sh/uv/) y git. uv instala los Python que pida la comprobación.
+You need [uv](https://docs.astral.sh/uv/) and git. uv installs the Python versions the check asks for.
 
 ```bash
 git clone https://github.com/dpalazon-dev/KBOL.git
@@ -13,41 +13,41 @@ uv sync
 uv run kbol --help
 ```
 
-## Comprobación local
+## Local check
 
-Todo cambio pasa esta comprobación antes de proponerse:
+Every change passes this check before it is proposed:
 
 ```bash
-uv run python tools/comprobar.py
+uv run python tools/check.py
 ```
 
-Ejecuta, en orden y parando en el primer fallo, `ruff` sobre `kbol`, `tests` y las herramientas; la suite en Python 3.10 y 3.14; y los tests de `tools/di` (con Docling, la parte lenta). Con `--sin-di` se salta `tools/di`; con `--rapido`, además, la suite corre una sola vez. `uv run python tools/comprobar.py --instalar-hook` deja la pasada rápida como hook `pre-push` de tu copia.
+It runs, in order and stopping at the first failure, `ruff` over `kbol`, `tests` and the tools; the suite on Python 3.10 and 3.14; and the tests of `tools/di` (with Docling, the slow part). With `--no-di` it skips `tools/di`; with `--quick`, the suite also runs only once. `uv run python tools/check.py --install-hook` sets up the quick pass as a `pre-push` hook in your copy.
 
-La integración continua (`.github/workflows/comprobar.yml`) ejecuta la misma orden con `--sin-di`. Un verde en local solo acredita tu máquina; el de la integración continua, Linux con las versiones que resolvió uv.
+Continuous integration (`.github/workflows/check.yml`) runs the same command with `--no-di`. A green run locally only vouches for your machine; the one in continuous integration, for Linux with the versions uv resolved.
 
-Reglas que la suite hace cumplir y conviene conocer antes de tocar documentación:
+Rules the suite enforces, worth knowing before touching documentation:
 
-- Hay dos README con el mismo contenido: `README.md`, en inglés, y `README.es.md`, en español. Un cambio en uno va también al otro.
-- La tabla de módulos de cada README lista exactamente los módulos de `kbol/`, y su sección de uso, exactamente las órdenes habilitadas.
-- Toda ruta del repositorio citada entre comillas invertidas en los README o en `docs/elecciones.md` tiene que existir.
-- Un README no afirma una capacidad que el código no tenga. Si una función no está acabada, va en sus limitaciones («Qué no hace todavía», «Limitations»).
+- There is a single README, `README.md`, in English.
+- The module table of the README lists exactly the modules of `kbol/`, and its usage section, exactly the enabled commands.
+- Every repository path cited between backticks in the README or in `docs/design-choices.md` has to exist.
+- The README does not claim a capability the code does not have. If a feature is not finished, it goes in its limitations ("Limitations").
 
 ## Demo
 
-El GIF de los README (`docs/demo.gif`) se dibuja con la salida real de las órdenes: `uv run --with pillow python tools/demo_gif.py`. Regenéralo si cambia lo que muestran `consultar`, `buscar` o `proponer`.
+The README GIF (`docs/demo.gif`) is drawn from the real output of the commands: `uv run --with pillow python tools/demo_gif.py`. Regenerate it if what `query`, `search` or `propose` show changes.
 
 ## Commits
 
-Commits pequeños, cada uno con la comprobación pasando. El mensaje sigue la forma `tipo(ámbito): qué cambia`, en español y en presente, con `feat`, `fix`, `docs`, `chore`, `test` o `refactor`; por ejemplo, `fix(citas): una cita sin contexto no se da por resuelta`. Si el cambio es incompatible para quien consume la CLI, añade su nota en [`docs/cambios.md`](docs/cambios.md) con la plantilla de ese archivo y una entrada en [CHANGELOG.md](CHANGELOG.md).
+Small commits, each with the check passing. The message follows the form `type(scope): what changes`, in English and in the present tense, with `feat`, `fix`, `docs`, `chore`, `test` or `refactor`; for example, `fix(citations): a citation without context is not taken as resolved`. Commits before 0.13 are in Spanish. If the change is breaking for whoever consumes the CLI, add its note in [`docs/breaking-changes.md`](docs/breaking-changes.md) with that file's template and an entry in [CHANGELOG.md](CHANGELOG.md).
 
 ## Pull requests
 
-El código y la documentación entran por pull request contra `main`. El mantenedor lo revisa, repite la comprobación y lo fusiona.
+Code and documentation come in through pull requests against `main`. The maintainer reviews, repeats the check and merges.
 
-## Licencia de las contribuciones
+## License of contributions
 
-KBOL se distribuye bajo Apache-2.0. Lo que contribuyas entra con esa misma licencia (cláusula 5), sin acuerdo aparte.
+KBOL is distributed under Apache-2.0. What you contribute comes in under that same license (section 5), with no separate agreement.
 
-## Incidencias
+## Issues
 
-Usa las plantillas: error o propuesta. En un error, incluye la orden exacta, la versión (`pyproject.toml` o `kbol.__version__`) y el sobre JSON de la salida, que dice qué no evaluó la orden.
+Use the templates: bug or proposal. In a bug, include the exact command, the version (`pyproject.toml` or `kbol.__version__`) and the JSON envelope of the output, which says what the command did not evaluate.

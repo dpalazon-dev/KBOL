@@ -1,224 +1,224 @@
-"""VAL-01: esquema común, por tipo, anidado y por clase de evento."""
+"""VAL-01: common schema, per type, nested and per event class."""
 
 import pytest
-from conftest import CUERPO_DECISION, POR_TIPO, T0, evento, registro
+from conftest import BY_TYPE, DECISION_BODY, T0, event, record
 
-from kbol.schema import validar
-
-
-def codigos(hallazgos):
-    return {h["codigo"] for h in hallazgos}
+from kbol.schema import validate
 
 
-def rutas(hallazgos):
-    return {h["ruta"] for h in hallazgos}
+def codes(findings):
+    return {h["code"] for h in findings}
 
 
-@pytest.mark.parametrize("tipo", sorted(POR_TIPO))
-def test_registro_minimo_valido_por_tipo(tipo):
-    cuerpo = CUERPO_DECISION if tipo == "decision" else ""
-    assert validar(registro(tipo), cuerpo) == []
+def paths(findings):
+    return {h["path"] for h in findings}
 
 
-def test_ejemplo_del_contrato_valida_como_propuesta():
-    # «Ejemplo completo de propuesta de decisión», KB-DPP núcleo 0.7.
-    r = registro("decision", title="Calendario de entrega del informe")
-    cuerpo = '<clausula id="C1">\nEl informe se entrega los martes.\n</clausula>\n\n<clausula id="C2">\nEl informe solo incluye datos verificados.\n</clausula>\n'
-    assert validar(r, cuerpo) == []
+@pytest.mark.parametrize("type_", sorted(BY_TYPE))
+def test_minimal_record_valid_per_type(type_):
+    body = DECISION_BODY if type_ == "decision" else ""
+    assert validate(record(type_), body) == []
+
+
+def test_contract_example_validates_as_proposal():
+    # "Complete example of a decision proposal", KB-DPP core 1.0.
+    r = record("decision", title="Report delivery schedule")
+    body = '<clause id="C1">\nThe report is delivered on Tuesdays.\n</clause>\n\n<clause id="C2">\nThe report only includes verified data.\n</clause>\n'
+    assert validate(r, body) == []
 
 
 @pytest.mark.parametrize(
-    "campo", ["id", "type", "clase", "title", "description", "ambito", "estado", "autor", "eventos", "sources"]
+    "field", ["id", "type", "class", "title", "description", "scope", "state", "author", "events", "sources"]
 )
-def test_comunes_obligatorios(campo):
-    r = registro("pregunta")
-    del r[campo]
-    assert "ESQUEMA_INVALIDO" in codigos(validar(r))
+def test_common_fields_required(field):
+    r = record("question")
+    del r[field]
+    assert "INVALID_SCHEMA" in codes(validate(r))
 
 
 @pytest.mark.parametrize(
-    "cambio",
+    "change",
     [
-        {"description": "dos\nlíneas"},
-        {"clase": "otra"},
-        {"estado": "aceptada"},  # no es estado de pregunta
-        {"autor": "David"},  # actor sin forma human:/process:/productor/versión
+        {"description": "two\nlines"},
+        {"class": "other"},
+        {"state": "accepted"},  # not a question state
+        {"author": "David"},  # actor without the shape human:/process:/producer/version
         {"sources": [{"id": "s1"}]},
-        {"sources": [{"id": "s1", "resource": "F-A", "extra": 1}]},
-        {"sources": [{"id": "s1", "resource": "F-A"}, {"id": "s1", "resource": "F-B"}]},
-        {"sources": [{"id": "s1", "resource": "F-A", "hash": "corto"}]},
-        {"responsable": ["ROL-A"]},
-        {"subtipo": "otra"},
-        {"plazo": "mañana"},
-        {"id": "DEC-A"},  # prefijo de otro tipo
-        {"id": "sin-prefijo"},
+        {"sources": [{"id": "s1", "resource": "SRC-A", "extra": 1}]},
+        {"sources": [{"id": "s1", "resource": "SRC-A"}, {"id": "s1", "resource": "SRC-B"}]},
+        {"sources": [{"id": "s1", "resource": "SRC-A", "hash": "short"}]},
+        {"owner": ["ROLE-A"]},
+        {"subtype": "other"},
+        {"deadline": "tomorrow"},
+        {"id": "DEC-A"},  # prefix of another type
+        {"id": "no-prefix"},
     ],
 )
-def test_valores_incorrectos_rechazados(cambio):
-    assert validar(registro("pregunta", **cambio))
+def test_wrong_values_rejected(change):
+    assert validate(record("question", **change))
 
 
-def test_campo_desconocido_bloquea_en_canonico_y_avisa_en_intercambio():
-    r = registro("pregunta", extra="x")
-    assert codigos(validar(r, modo="canonico")) == {"ESQUEMA_INVALIDO"}
-    avisos = validar(r, modo="intercambio")
-    assert avisos and all(h["severidad"] == "aviso" for h in avisos)
+def test_unknown_field_blocks_in_canonical_and_alerts_in_exchange():
+    r = record("question", extra="x")
+    assert codes(validate(r, mode="canonical")) == {"INVALID_SCHEMA"}
+    alerts = validate(r, mode="exchange")
+    assert alerts and all(h["severity"] == "alert" for h in alerts)
 
 
-def test_campo_de_otro_tipo_es_desconocido():
-    # resuelta_por solo sale de una pregunta; modifica, de una decisión.
-    assert validar(registro("hecho", resuelta_por=["DEC-A"]))
-    assert validar(registro("pregunta", modifica=[]))
+def test_field_of_another_type_is_unknown():
+    # resolved_by only leaves a question; amends, a decision.
+    assert validate(record("fact", resolved_by=["DEC-A"]))
+    assert validate(record("question", amends=[]))
 
 
-def test_yaml_1_1_no_cuela_booleanos_por_texto():
-    # «no» leído por PyYAML es False: el esquema lo rechaza en lugar de aceptarlo como alias.
-    assert validar(registro("entidad", alias=[False]))
+def test_yaml_1_1_does_not_sneak_booleans_as_text():
+    # "no" read by PyYAML is False: the schema rejects it instead of accepting it as an alias.
+    assert validate(record("entity", aliases=[False]))
 
 
-def test_enteros_exactos_y_sin_decimales():
-    v = POR_TIPO["hito"]["verificaciones"][0]
-    assert validar(registro("hito", verificaciones=[{**v, "timeout": 1.5}]))
-    assert validar(registro("hito", verificaciones=[{**v, "timeout": True}]))
+def test_exact_integers_and_no_decimals():
+    v = BY_TYPE["milestone"]["checks"][0]
+    assert validate(record("milestone", checks=[{**v, "timeout": 1.5}]))
+    assert validate(record("milestone", checks=[{**v, "timeout": True}]))
 
 
-def test_fuente_original_y_derivada():
-    assert validar(registro("fuente", sha256="A" * 64))
-    assert validar(registro("fuente", subtipo="derivada"))
-    derivada = registro(
-        "fuente",
-        id="F-AR",
-        subtipo="derivada",
-        derivada_de=["F-A"],
-        procesador="docling",
-        version_procesador="2.1.0",
-        configuracion_ref="perfil:tablas",
-        procesado_en="2026-11-02T10:00:00+01:00",
-        procesamiento="parcial",
-        calidad={
-            "tablas": {"metodo": "muestra", "resultado": "parcial", "limites": "columna 3"},
-            "figuras": "no_evaluado",
+def test_original_and_derived_source():
+    assert validate(record("source", sha256="A" * 64))
+    assert validate(record("source", subtype="derived"))
+    derived = record(
+        "source",
+        id="SRC-AR",
+        subtype="derived",
+        derived_from=["SRC-A"],
+        processor="docling",
+        processor_version="2.1.0",
+        configuration_ref="profile:tables",
+        processed_at="2026-11-02T10:00:00+01:00",
+        processing="partial",
+        quality={
+            "tables": {"method": "sample", "result": "partial", "limits": "column 3"},
+            "figures": "not_evaluated",
         },
     )
-    del derivada["origen"]
-    assert validar(derivada) == []
-    assert validar({**derivada, "procesamiento": "terminado"})
-    assert validar({**derivada, "calidad": {"tablas": {"resultado": 0}}})
+    del derived["origin"]
+    assert validate(derived) == []
+    assert validate({**derived, "processing": "finished"})
+    assert validate({**derived, "quality": {"tables": {"result": 0}}})
 
 
-def test_decision_sin_alternativas_exige_motivo_y_seleccion():
-    assert validar(registro("decision", alternativas=[]), CUERPO_DECISION)
+def test_decision_without_alternatives_requires_reason_and_selection():
+    assert validate(record("decision", alternatives=[]), DECISION_BODY)
     assert (
-        validar(registro("decision", alternativas=[], sin_alternativas_motivo="Corrección demostrada"), CUERPO_DECISION)
+        validate(record("decision", alternatives=[], no_alternatives_reason="Proven correction"), DECISION_BODY)
         == []
     )
-    alts = [dict(a, seleccionada=False) for a in POR_TIPO["decision"]["alternativas"]]
-    assert validar(registro("decision", alternativas=alts), CUERPO_DECISION)
-    assert validar(registro("decision", autorizado_por=[]), CUERPO_DECISION)
+    alts = [dict(a, selected=False) for a in BY_TYPE["decision"]["alternatives"]]
+    assert validate(record("decision", alternatives=alts), DECISION_BODY)
+    assert validate(record("decision", authorized_by=[]), DECISION_BODY)
 
 
-def test_decision_canonica_necesita_clausulas_y_cuerpo_bien_formado():
-    assert validar(registro("decision"), "texto libre", modo="canonico")
-    assert validar(registro("decision"), '<clausula id="C1">\nabierta', modo="intercambio")
+def test_canonical_decision_needs_clauses_and_well_formed_body():
+    assert validate(record("decision"), "free text", mode="canonical")
+    assert validate(record("decision"), '<clause id="C1">\nopen', mode="exchange")
 
 
-def test_relaciones_tipadas():
-    r = registro("decision")
-    ok = [{"destino": "DEC-A#C1", "tipo": "sustitucion", "por": "DEC-EJEMPLO#C1"}]
-    assert validar({**r, "modifica": ok}, CUERPO_DECISION) == []
-    for malo in (
-        [{"destino": "DEC-A#C1", "tipo": "sustitucion"}],
-        [{"destino": "DEC-A#C1", "tipo": "derogacion", "por": "DEC-EJEMPLO#C1"}],
-        [{"destino": "DEC-A", "tipo": "sustitucion", "por": "DEC-EJEMPLO#C1"}],  # sustitución exige ancla
-        [{"destino": "DEC-A#C1", "tipo": "otra", "por": "DEC-EJEMPLO#C1"}],
+def test_typed_relations():
+    r = record("decision")
+    ok = [{"target": "DEC-A#C1", "operation": "replaces", "by": "DEC-EXAMPLE#C1"}]
+    assert validate({**r, "amends": ok}, DECISION_BODY) == []
+    for bad in (
+        [{"target": "DEC-A#C1", "operation": "replaces"}],
+        [{"target": "DEC-A#C1", "operation": "repeals", "by": "DEC-EXAMPLE#C1"}],
+        [{"target": "DEC-A", "operation": "replaces", "by": "DEC-EXAMPLE#C1"}],  # replaces requires an anchor
+        [{"target": "DEC-A#C1", "operation": "other", "by": "DEC-EXAMPLE#C1"}],
     ):
-        assert validar({**r, "modifica": malo}, CUERPO_DECISION), malo
+        assert validate({**r, "amends": bad}, DECISION_BODY), bad
     assert (
-        validar(
+        validate(
             {
                 **r,
-                "modifica": [
-                    {"destino": "DEC-A", "tipo": "adicion", "por": "DEC-EJEMPLO#C1", "posicion": "tras DEC-A#C2"}
+                "amends": [
+                    {"target": "DEC-A", "operation": "adds", "by": "DEC-EXAMPLE#C1", "position": "after DEC-A#C2"}
                 ],
             },
-            CUERPO_DECISION,
+            DECISION_BODY,
         )
         == []
     )
-    assert validar(registro("hito", depende_de=[{"destino": "HI-B", "condicion": "completado_con_evidencia"}])) == []
-    assert validar(registro("hito", depende_de=[{"destino": "HI-B", "condicion": "existe"}]))
-    assert validar(registro("hito", depende_de=["HI-B"]))
-    assert validar(registro("pregunta", cuestiona=["DEC-A"]))  # cuestiona apunta a una cláusula
-    assert validar(registro("pregunta", cuestiona=["DEC-A#C1"])) == []
-    assert validar(registro("pregunta", resuelta_por=["Q-B"]))  # resuelve una decisión
+    assert validate(record("milestone", depends_on=[{"target": "MS-B", "condition": "completed_with_evidence"}])) == []
+    assert validate(record("milestone", depends_on=[{"target": "MS-B", "condition": "exists"}]))
+    assert validate(record("milestone", depends_on=["MS-B"]))
+    assert validate(record("question", challenges=["DEC-A"]))  # challenges points to a clause
+    assert validate(record("question", challenges=["DEC-A#C1"])) == []
+    assert validate(record("question", resolved_by=["Q-B"]))  # a decision resolves it
     assert (
-        validar(
-            registro(
+        validate(
+            record(
                 "decision",
-                veta=[{"patron": "tenant", "ambito": "producto", "uso": "contenido operativo", "exclusiones": []}],
+                vetoes=[{"pattern": "tenant", "scope": "product", "use": "operational content", "exclusions": []}],
             ),
-            CUERPO_DECISION,
+            DECISION_BODY,
         )
         == []
     )
 
 
-def test_rol_regla_de_aprobacion():
-    for ok in ("uno", "todos", {"quorum": 2}):
-        assert validar(registro("rol", regla_aprobacion=ok)) == []
-    for malo in ("mayoria", {"quorum": 0}, {"quorum": "2"}):
-        assert validar(registro("rol", regla_aprobacion=malo))
+def test_role_approval_rule():
+    for ok in ("one", "all", {"quorum": 2}):
+        assert validate(record("role", approval_rule=ok)) == []
+    for bad in ("majority", {"quorum": 0}, {"quorum": "2"}):
+        assert validate(record("role", approval_rule=bad))
 
 
-def test_hito_aceptacion_y_verificaciones():
-    k = POR_TIPO["hito"]["aceptacion"][0]
-    v = POR_TIPO["hito"]["verificaciones"][0]
-    assert validar(registro("hito", verificaciones=[{**v, "criterio_id": "K9"}]))  # criterio inexistente
-    assert validar(registro("hito", aceptacion=[{**k, "metodo": "evaluacion_ia_asistida"}]))  # sin rúbrica
-    ia = {**k, "metodo": "evaluacion_ia_asistida", "rubrica": "R", "resolucion_desacuerdo": "Decide David"}
-    assert validar(registro("hito", aceptacion=[ia])) == []
-    assert validar(registro("hito", tolerancias={"velocidad": "alta"}))
+def test_milestone_acceptance_and_checks():
+    k = BY_TYPE["milestone"]["acceptance"][0]
+    v = BY_TYPE["milestone"]["checks"][0]
+    assert validate(record("milestone", checks=[{**v, "criterion_id": "K9"}]))  # nonexistent criterion
+    assert validate(record("milestone", acceptance=[{**k, "method": "ai_assisted_evaluation"}]))  # no rubric
+    ai = {**k, "method": "ai_assisted_evaluation", "rubric": "R", "disagreement_resolution": "David decides"}
+    assert validate(record("milestone", acceptance=[ai])) == []
+    assert validate(record("milestone", tolerances={"speed": "high"}))
 
 
-def test_eventos_por_clase():
-    t = evento(estado_anterior=None, estado_nuevo="abierta", tipo_evento="creacion")
-    assert validar(registro("pregunta", eventos=[t])) == []
-    assert validar(registro("pregunta", eventos=[{**t, "extra": 1}]))
-    assert validar(registro("pregunta", eventos=[{**t, "registrado_en": "nonsense"}]))
-    assert validar(registro("pregunta", eventos=[{**t, "registrado_en": "2026-11-03T10:00:00"}]))  # sin zona
-    assert validar(registro("pregunta", eventos=[{**t, "evidencia_evento": "texto"}]))
-    aprob = dict(
-        aprobacion_id="AP1",
+def test_events_per_class():
+    t = event(previous_state=None, new_state="open", event_type="creation")
+    assert validate(record("question", events=[t])) == []
+    assert validate(record("question", events=[{**t, "extra": 1}]))
+    assert validate(record("question", events=[{**t, "recorded_at": "nonsense"}]))
+    assert validate(record("question", events=[{**t, "recorded_at": "2026-11-03T10:00:00"}]))  # no zone
+    assert validate(record("question", events=[{**t, "event_evidence": "text"}]))
+    appr = dict(
+        approval_id="AP1",
         actor="human:david",
-        identidad_ref="github:1",
-        roles=["ROL-EJEMPLO"],
+        identity_ref="github:1",
+        roles=["ROLE-EXAMPLE"],
         digest="b" * 64,
-        revision_base="23fef059",
-        aprobada_en=T0,
-        politica_revision="23fef059",
-        comprobante={"mecanismo": "github-review", "id": "1"},
+        base_revision="23fef059",
+        approved_at=T0,
+        policy_revision="23fef059",
+        proof={"mechanism": "github-review", "id": "1"},
     )
-    rat = evento("ratificacion", evento_id="E2", aprobacion=aprob)
-    assert validar(registro("decision", eventos=[rat]), CUERPO_DECISION) == []
-    assert validar(registro("decision", eventos=[{**rat, "aprobacion": {**aprob, "digest": "x"}}]), CUERPO_DECISION)
+    rat = event("ratification", event_id="E2", approval=appr)
+    assert validate(record("decision", events=[rat]), DECISION_BODY) == []
+    assert validate(record("decision", events=[{**rat, "approval": {**appr, "digest": "x"}}]), DECISION_BODY)
 
 
-def test_eventos_con_id_repetido():
-    t = evento("creacion", estado_anterior=None, estado_nuevo="abierta")
-    assert validar(registro("pregunta", eventos=[t, t]))
+def test_events_with_repeated_id():
+    t = event("creation", previous_state=None, new_state="open")
+    assert validate(record("question", events=[t, t]))
 
 
-def test_hecho_exige_fecha_o_intervalo_con_precision():
-    r = registro("hecho")
-    del r["fecha"]
-    assert validar(r)
-    assert validar({**r, "intervalo": {"desde": "2026-10-01"}, "precision": "dia"}) == []
-    assert validar({**r, "fecha": "2026-10-30", "precision": "segundos"})
+def test_fact_requires_date_or_interval_with_precision():
+    r = record("fact")
+    del r["date"]
+    assert validate(r)
+    assert validate({**r, "interval": {"from": "2026-10-01"}, "precision": "day"}) == []
+    assert validate({**r, "date": "2026-10-30", "precision": "seconds"})
 
 
-def test_marcas_de_hecho_en_cuerpo_validadas():
-    r = registro("decision", sources=[{"id": "s1", "resource": "F-A"}])
-    cuerpo = CUERPO_DECISION + '\n<hecho id="H1" evidencia="declarado" fuente="s1">Caudal 5 m3/h</hecho>\n'
-    assert validar(r, cuerpo) == []
-    assert validar(r, cuerpo.replace('fuente="s1"', 'fuente="s9"'))
-    assert validar(r, cuerpo.replace("declarado", "certero"))
+def test_fact_markup_in_body_validated():
+    r = record("decision", sources=[{"id": "s1", "resource": "SRC-A"}])
+    body = DECISION_BODY + '\n<fact id="H1" evidence="declared" source="s1">Flow 5 m3/h</fact>\n'
+    assert validate(r, body) == []
+    assert validate(r, body.replace('source="s1"', 'source="s9"'))
+    assert validate(r, body.replace("declared", "certain"))

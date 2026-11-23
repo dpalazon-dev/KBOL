@@ -1,12 +1,12 @@
 [project]
 name = "kbol-di"
 version = "0.3.0"
-description = "Document Intelligence de KBOL: captura con huella, Docling y MarkItDown, estructura, fidelidad y carpeta navegable de cada documento"
+description = "KBOL Document Intelligence: fingerprinted capture, Docling and MarkItDown, structure, fidelity and navigable folder of each document"
 requires-python = ">=3.12"
 dependencies = [
     "docling==2.142.1",
     "markitdown==0.1.9",
-    # MarkItDown arrastra onnxruntime (por magika); la 1.20 no tiene rueda para Python 3.14.
+    # MarkItDown pulls in onnxruntime (through magika); 1.20 has no wheel for Python 3.14.
     "onnxruntime==1.31.0",
     "pypdf==5.1.0",
 ]
@@ -16,7 +16,7 @@ dev = ["pytest>=8,<9"]
 
 [tool.uv]
 package = false
-# Regla de la instalación: dependencias con al menos dos semanas desde su publicación.
+# Installation rule: dependencies at least two weeks old since their release.
 exclude-newer = "2026-10-24T00:00:00Z"
 
 [tool.pytest.ini_options]

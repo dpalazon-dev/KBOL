@@ -1,0 +1,39 @@
+---
+type: Milestone
+id: PL-001-H6
+title: "Continuous verification"
+class: record
+status: stable
+state: Done
+owner: Owner
+depends_on: "—"
+closes: ["QD-043"]
+advances: "—"
+tests: "—"
+produces: ["ADR-0054", ".ci/check.yml", "QD-120", "QD-121"]
+evidence: ["ADR-0054", "commit 1111111", "commit 2222222", "continuous integration run on 2222222: 5 of 5 jobs green"]
+verifies: ["python -c \"import sys; sys.exit(0)\""]
+---
+
+# PL-001-H6 · Continuous verification
+
+## Goal
+
+Every change to the catalog passes the tests before being integrated.
+
+## Scope
+
+The search, loans and notices suites.
+
+## Verification
+
+The last continuous integration run on `main` ends green.
+
+## Tasks
+
+* Add continuous integration.
+* Make the check mandatory before integrating.
+
+## Notes
+
+Record invented for the KBOL tests.

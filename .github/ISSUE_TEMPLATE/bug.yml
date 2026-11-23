@@ -1,0 +1,47 @@
+name: Bug
+description: A KBOL command does something different from what the README or docs/design-choices.md say
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command
+      description: The full line, with its arguments.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: And where the documentation says so, if it does.
+    validations:
+      required: true
+  - type: textarea
+    id: envelope
+    attributes:
+      label: JSON envelope of the output
+      description: Include `result`, `warnings` and `coverage`. Remove private paths or data.
+      render: json
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: KBOL version
+      placeholder: "0.13.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system, Python and git
+      placeholder: "Ubuntu 24.04, Python 3.12, git 2.47"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      description: A minimal record or a test repository helps more than a description.

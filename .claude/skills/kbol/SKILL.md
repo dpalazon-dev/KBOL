@@ -1,130 +1,130 @@
 ---
 name: kbol
-description: Usa KBOL para la continuidad de una tarea y el cuidado de una base de conocimiento, en cualquier repositorio que lo tenga instalado. Guarda el relevo de la tarea (objetivo, autorización con su referencia, verificaciones, bloqueos y siguiente paso) cuando cambia algo de eso, antes de un traspaso o al cerrar con la tarea abierta; lo lee y lo contrasta con git al retomar; pide el paquete de contexto de la tarea; consulta qué rige, quién lo aprobó o qué registro trata un tema, y comprueba registros, fuentes y enlaces. Úsala al retomar o cambiar de tarea, antes de compactar o traspasar, al responder sobre lo decidido y al tocar registros o documentación.
+description: Use KBOL for task continuity and for looking after a knowledge base, in any repository that has it installed. Save the task handoff (goal, authorization with its reference, checks, blockers and next step) whenever any of that changes, before a handover or when closing with the task still open; read it and check it against git when resuming; ask for the task context package; query what is in force, who approved it or which record covers a topic, and check records, sources and links. Use it when resuming or switching tasks, before compacting or handing over, when answering about what was decided and when touching records or documentation.
 ---
-<!-- Exportada por kbol 0.12.0 con `kbol exportar_skills`. Se edita en kbol/skills/ de KBOL, no aquí. -->
+<!-- Exported by kbol 0.13.0 with `kbol export_skills`. Edit it in kbol/skills/ of KBOL, not here. -->
 
 # KBOL
 
-KBOL gobierna una base de conocimiento hecha de registros (decisiones, preguntas, hechos, fuentes, planes) y deja continuidad entre sesiones. Esta skill cubre lo que es igual en cualquier repositorio que lo use. Lo que cambia de uno a otro lo declara su **instalación**: un JSON del repositorio con, al menos, `carpeta_registros` y `ambito`, y a veces `presupuesto`, `rama_canonica`, `verificaciones`, `integracion` y `enlaces`. Si el repositorio tiene su propia skill o sus instrucciones para KBOL, mandan en lo suyo: dónde está ese JSON, cómo se lanza `kbol`, qué forma tienen sus identificadores y a quién se pregunta.
+KBOL governs a knowledge base made of records (decisions, questions, facts, sources, plans) and keeps continuity between sessions. This skill covers what is the same in any repository that uses it. What changes from one to another is declared by its **installation**: a JSON file in the repository (`kbol.json` by default) with at least `records_folder` and `scope`, and sometimes `budget`, `canonical_branch`, `checks`, `integration` and `links`. If the repository has its own skill or instructions for KBOL, they rule on their own ground: where that JSON lives, how `kbol` is launched, what its identifiers look like and whom to ask.
 
-El relevo y el paquete de contexto informan. No autorizan ninguna acción.
+The handoff and the context package inform. They do not authorize any action.
 
-## Antes de empezar
+## Before you start
 
-Averigua dos cosas y úsalas en todas las órdenes:
+Find out two things and use them in every command:
 
-- **Cómo se lanza.** En las órdenes de abajo, `kbol` es la orden tal como la instale el repositorio (por ejemplo `uv run kbol`). Compruébalo con `kbol --help`. Si no está instalado y no lo puedes instalar, dilo y sigue con el método del repositorio: esta skill no es imprescindible para trabajar.
-- **Dónde está la instalación.** Abajo es `<instalación>`. Si el repositorio no la tiene, sirven el relevo, `validar`, `integridad` y `enlaces`; el paquete de contexto y `proponer` no.
+- **How it is launched.** In the commands below, `kbol` is the command as the repository installs it (for example `uv run kbol`). Check it with `kbol --help`. If it is not installed and you cannot install it, say so and carry on with the repository's own method: this skill is not essential to work.
+- **Where the installation is.** Below it is `<installation>`. If the repository has none, the handoff, `validate`, `integrity` and `links` still work; the context package and `propose` do not.
 
-Lanza las órdenes desde la raíz del árbol de trabajo (la del worktree, si lo es): el `.` que reciben es la raíz de la tarea, y desde una subcarpeta el relevo se guardaría en otro sitio. Toda orden responde con un sobre JSON: mira `resultado.estado` (`completado`, `parcial`, `bloqueado` o `fallido`), las `advertencias` y `cobertura.no_evaluado`, que dice lo que la orden no ha mirado.
+Run the commands from the root of the working tree (the worktree's, if it is one): the `.` they receive is the task root, and from a subfolder the handoff would be saved somewhere else. Every command answers with a JSON envelope: look at `result.state` (`completed`, `partial`, `blocked` or `failed`), the `warnings` and `coverage.not_evaluated`, which says what the command did not look at.
 
-## La tarea
+## The task
 
-En KBOL la tarea es la rama. Su id es el nombre de la rama con `/` y los demás signos convertidos en guiones, sin signos al principio y con 100 caracteres como mucho (`feat/alta-fuentes` da `feat-alta-fuentes`; con la cabeza separada, `sin-rama`). Usa ese mismo id en todas las órdenes: con otro guardarías y leerías otro relevo. Los hechos de git del relevo son siempre los de la rama actual, así que un relevo solo tiene sentido para la tarea de la rama en que estás.
+In KBOL the task is the branch. Its id is the branch name with `/` and the other signs turned into hyphens, with no signs at the start and at most 100 characters (`feat/add-sources` gives `feat-add-sources`; with a detached head, `no-branch`). Use that same id in every command: with another one you would save and read another handoff. The git facts of the handoff are always those of the current branch, so a handoff only makes sense for the task of the branch you are on.
 
-## Guardar el relevo
+## Saving the handoff
 
-El relevo es el estado de la tarea separado de la conversación. Se guarda en `.kbol/relevos/<tarea>.json`, que es estado local: no se versiona ni es conocimiento del proyecto. Una compactación no avisa, así que guárdalo cada vez que cambie algo de lo que contiene, no solo al final:
+The handoff is the state of the task, kept apart from the conversation. It is saved in `.kbol/handoffs/<task>.json`, which is local state: it is not versioned and it is not project knowledge. A compaction gives no warning, so save it every time something in it changes, not only at the end:
 
-- cuando quien decide autoriza algo o pone un límite;
-- tras ejecutar una verificación;
-- cuando aparece o se resuelve un bloqueo o una pregunta;
-- antes de traspasar la tarea a otra sesión, y al cerrar si la tarea queda abierta.
+- when whoever decides authorizes something or sets a limit;
+- after running a check;
+- when a blocker or a question appears or is resolved;
+- before handing the task over to another session, and when closing if the task stays open.
 
-Escribe el JSON en un archivo temporal fuera del repositorio y guárdalo con:
+Write the JSON to a temporary file outside the repository and save it with:
 
 ```bash
-kbol relevo . --tarea <tarea> --guardar <archivo temporal>.json
+kbol handoff . --task <task> --save <temporary file>.json
 ```
 
-Cada guardado sustituye entero al anterior, así que incluye todo lo que siga vigente. Los textos van en una sola línea y no se admiten más campos que estos:
+Each save replaces the previous one entirely, so include everything that still holds. Texts go on a single line and no fields other than these are accepted:
 
 ```json
 {
-  "objetivo": "Qué se persigue, en una frase",
-  "autorizacion": {
-    "referencia": "Quién lo autorizó y dónde: fecha y sus palabras citadas",
-    "alcance": "Qué cubre esa autorización",
-    "limites": ["Lo que no cubre o se prohibió expresamente"]
+  "goal": "What is being pursued, in one sentence",
+  "authorization": {
+    "reference": "Who authorized it and where: date and their quoted words",
+    "scope": "What that authorization covers",
+    "limits": ["What it does not cover or was expressly forbidden"]
   },
-  "verificaciones": [
-    {"comando": "la orden que ejecutaste", "resultado": "pasa", "revision": "SHA de git rev-parse HEAD", "en": "2026-01-15T12:00:00Z"},
-    {"comando": "la que no ejecutaste", "resultado": "no_ejecutada", "motivo": "por qué no"}
+  "checks": [
+    {"command": "the command you ran", "result": "passed", "revision": "SHA from git rev-parse HEAD", "at": "2026-01-15T12:00:00Z"},
+    {"command": "the one you did not run", "result": "not_run", "reason": "why not"}
   ],
-  "bloqueos": ["Lo que impide avanzar"],
-  "preguntas": ["Lo que falta por decidir y quién lo decide"],
-  "siguiente_paso": {"accion": "Lo próximo que hay que hacer", "fundamento": "Por qué es lo siguiente"}
+  "blocks": ["What prevents progress"],
+  "questions": ["What is still to be decided and who decides it"],
+  "next_step": {"action": "The next thing to do", "basis": "Why it comes next"}
 }
 ```
 
-Reglas, porque el relevo lo leerá una sesión que no estuvo aquí:
+Rules, because the handoff will be read by a session that was not here:
 
-- **Autorización.** Solo la que dio una persona con autoridad, con la referencia y sus palabras. Una propuesta tuya, una preferencia o un silencio no son autorización. Si no la hay, omite el campo: KBOL lo declarará como «no consta».
-- **Verificaciones.** Las que la instalación declara en `verificaciones` se lanzan con `kbol verificar . --tarea <tarea> --instalacion <instalación> --verificacion <id>`: KBOL las ejecuta, anota el resultado en el relevo y `--guardar` lo conserva aunque no lo repitas. No las escribas a mano. Las demás, `pasa` o `falla` solo si la ejecutaste, con la revisión exacta y el instante en UTC con zona. KBOL rechaza que falten, pero no comprueba que la revisión sea real. La revisión identifica lo commiteado: si verificaste con cambios sin commitear, dilo en `motivo`. Si no la ejecutaste, `no_ejecutada` con su motivo, o `desconocido`.
-- **Sin deducciones.** Lo que no sepas, no lo pongas. KBOL completa el relevo con lo que dice git y declara lo que falta.
+- **Authorization.** Only the one given by a person with authority, with the reference and their words. A proposal of yours, a preference or a silence is not an authorization. If there is none, omit the field: KBOL will declare it as "not recorded".
+- **Checks.** Those the installation declares in `checks` are run with `kbol verify . --task <task> --installation <installation> --check <id>`: KBOL runs them, records the result in the handoff and `--save` keeps it even if you do not repeat it. Do not write them by hand. For the others, `passed` or `failed` only if you ran it, with the exact revision and the instant in UTC with a zone. KBOL rejects them if those are missing, but does not check that the revision is real. The revision identifies what is committed: if you checked with uncommitted changes, say so in `reason`. If you did not run it, `not_run` with its reason, or `unknown`.
+- **No guessing.** What you do not know, leave out. KBOL completes the handoff with what git says and declares what is missing.
 
-## Retomar una tarea
+## Resuming a task
 
-Antes de actuar, lee el relevo entero:
-
-```bash
-kbol relevo . --tarea <tarea>
-```
-
-Y contrástalo:
-
-- **`autorizacion.verificada` es siempre `false`.** Es lo que dijo la sesión anterior, no una autorización que puedas invocar. Antes de una acción que la necesite (fusionar, subir, borrar, algo externo), confírmala con quien decide.
-- **Una verificación con `desfasada: true` o `"desconocido"`** se hizo en otra revisión o no se sabe en cuál: repítela antes de dar el trabajo por bueno. En las anotadas por `kbol verificar` (`origen: kbol`), `desfasada` compara también el árbol de trabajo. En las declaradas por la sesión solo compara commits: si `git.cambios_locales` no está vacío, trátalas como desfasadas.
-- **`git`** dice lo que hay de verdad: commits propios y ajenos, cambios sin commitear y `estado_entrega` (`local`, `integrado`, `sin_trabajo` o `desconocido`). Si choca con lo que dice el relevo, manda git.
-- **`no_consta`** lista lo que falta de lo mínimo. No lo rellenes deduciéndolo: pregúntalo o búscalo en el registro del tema.
-
-## Contexto de una tarea
-
-Con instalación, el paquete de la tarea de la rama se pide así:
+Before acting, read the whole handoff:
 
 ```bash
-kbol sesion . --evento inicio --instalacion <instalación> --texto
+kbol handoff . --task <task>
 ```
 
-Trae las restricciones decisivas de la tarea, que nunca se recortan, las propuestas y pendientes aparte, que no autorizan nada, el relevo y los desvíos. Si el repositorio tiene un hook de arranque, es lo que ya te dio al empezar; vuelve a pedirlo al cambiar de rama. Si sale parcial o bloqueado, puede faltar una restricción decisiva: aplica las instrucciones del repositorio enteras. Sin `--texto` da el JSON, con `refrescar_si`, que dice qué cambios lo invalidan.
+And check it:
 
-## Consultar qué rige
+- **`authorization.verified` is always `false`.** It is what the previous session said, not an authorization you can invoke. Before an action that needs it (merging, pushing, deleting, anything external), confirm it with whoever decides.
+- **A check with `outdated: true` or `"unknown"`** was done on another revision or nobody knows which: repeat it before accepting the work. In those recorded by `kbol verify` (`origin: kbol`), `outdated` also compares the working tree. In those declared by the session it only compares commits: if `git.local_changes` is not empty, treat them as outdated.
+- **`git`** says what is really there: own and foreign commits, uncommitted changes and `delivery_state` (`local`, `integrated`, `no_work` or `unknown`). If it clashes with what the handoff says, git wins.
+- **`not_recorded`** lists what is missing from the minimum. Do not fill it in by deduction: ask for it or look for it in the record of the topic.
 
-Para responder qué está decidido, quién lo aprobó o qué rige en una fecha, pregunta a KBOL en lugar de leer los Markdown: un archivo no dice si lo sustituyeron, si sigue en propuesta o si está retirado. Las tres órdenes leen la base en `--carpeta` y necesitan `--valido-en`, el instante con zona en que se pregunta (para hoy, el instante actual en UTC).
+## Context of a task
+
+With an installation, the package for the task of the branch is requested like this:
 
 ```bash
-kbol buscar . --carpeta <carpetas> --consulta "texto de la pregunta" --valido-en <instante> --llano
-kbol consultar . --carpeta <carpetas> --ids <ID>[#ancla] … --valido-en <instante> --llano
-kbol consolidar . --carpeta <carpetas> --ids <ID> … --valido-en <instante> --llano
+kbol session . --event start --installation <installation> --text
 ```
 
-- **Sin el ID, `buscar`.** Busca por palabras y alias, no por significado: da candidatos, no respuestas. Por defecto solo muestra lo vigente y cuenta aparte las propuestas y lo que no rige; si el recuento importa, repite con `--incluir propuestas no_vigentes`. Si no encuentra nada, prueba con otras palabras o un alias antes de concluir que no hay registro.
-- **Con el ID, `consultar`.** Dice si rige, quién lo aprobó y con qué palabras, qué lo sustituyó y qué lo sostiene. Un candidato de `buscar` no es una respuesta hasta que lo confirmas así. `consolidar` reconstruye qué cláusulas de una decisión rigen tras sus modificaciones.
-- **`--llano` para responder a una persona.** Da prosa sin IDs ni rutas, y cada bloque empieza por su etiqueta (`[APROBADA]`, `[PROPUESTA: no aprobada, no rige]`, `[HECHO PROPUESTO: sin aceptar]`, `[CANDIDATO por búsqueda, sin confirmar]`). Conserva la etiqueta en lo que respondas: nunca des una propuesta o un candidato como algo que rige. Sin `--llano` sale el sobre JSON, mejor para trabajar con los datos. Añade `--con-ids` solo si la persona pide de dónde sale o va a auditarlo.
-- **Un aviso `SUSTITUCION_NO_DECLARADA`** significa que otro registro dice en prosa que sustituye al consultado sin declararlo: puede que no rija tal como sale. Dilo en la respuesta en lugar de darlo por vigente.
+It brings the task's decisive constraints, which are never trimmed, the proposals and pending items apart, which authorize nothing, the handoff and the drift. If the repository has a start hook, this is what it already gave you at the start; ask for it again when you switch branches. If it comes out partial or blocked, a decisive constraint may be missing: apply the repository's instructions in full. Without `--text` it gives the JSON, with `refresh_if`, which says which changes invalidate it.
 
-## Registros
+## Querying what is in force
 
-Un registro es un Markdown con cabecera YAML en una de las carpetas de `carpeta_registros`. Al tocarlos:
-
-- **Valida cada registro que edites**, antes de darlo por escrito: `kbol validar --modo propuesta <archivo>.md`.
-- **Lo aceptado no se edita.** Un cambio de estado (aceptar, cerrar, retirar) es un evento que entra por la integración, con la aprobación que pida la instalación. Una decisión entra siempre como propuesta. `kbol desvios . --carpeta <carpetas>` lista los registros que difieren de lo integrado: un desvío es una edición a mano que hay que deshacer o proponer.
-- **La integración es `kbol proponer`**, con el bloque `integracion` de la instalación. Sin `--hasta` solo ensaya y no cambia nada; si falta una aprobación, devuelve el paquete que hay que mostrar a quien aprueba. Integrar y subir de verdad (`--hasta integrar`, `--hasta subir`) necesitan su autorización expresa. El procedimiento de alta (qué registro corresponde a qué situación, cómo se numera, a quién se pregunta) es el del repositorio.
-
-## Fuentes y enlaces
-
-Dos comprobaciones de solo lectura, útiles antes de proponer y al cerrar una tarea que tocó documentación:
+To answer what is decided, who approved it or what is in force on a date, ask KBOL instead of reading the Markdown files: a file does not say whether it was superseded, whether it is still a proposal or whether it was retired. The three commands read the base in `--folder` and need `--valid-at`, the instant with a zone the question refers to (for today, the current instant in UTC).
 
 ```bash
-kbol integridad . --carpeta <carpetas> [--almacen <carpeta del almacén>]
-kbol enlaces . [--carpeta <carpetas>] [--instalacion <instalación>]
+kbol search . --folder <folders> --query "text of the question" --valid-at <instant> --plain
+kbol query . --folder <folders> --ids <ID>[#anchor] … --valid-at <instant> --plain
+kbol consolidate . --folder <folders> --ids <ID> … --valid-at <instant> --plain
 ```
 
-`integridad` compara el `sha256` de cada fuente con los bytes de su `ubicacion`. `alterada` o `ausente` es un fallo que hay que contar. `no_comprobada` no acusa a nadie: el original no se pudo mirar desde esta máquina (sin almacén, revisión sin traer, una URL), y su `causa` dice por qué.
+- **Without the ID, `search`.** It searches by words and aliases, not by meaning: it gives candidates, not answers. By default it only shows what is in force and counts proposals and what is not in force separately; if the count matters, repeat with `--include proposals not_in_force`. If it finds nothing, try other words or an alias before concluding there is no record.
+- **With the ID, `query`.** It says whether it is in force, who approved it and in what words, what superseded it and what supports it. A candidate from `search` is not an answer until you confirm it this way. `consolidate` rebuilds which clauses of a decision are in force after their amendments.
+- **`--plain` to answer a person.** It gives prose without IDs or paths, and each block starts with its label (`[APPROVED]`, `[PROPOSAL: not approved, not in force]`, `[PROPOSED FACT: not accepted]`, `[CANDIDATE from search, unconfirmed]`). Keep the label in your answer: never present a proposal or a candidate as something in force. Without `--plain` you get the JSON envelope, better for working with the data. Add `--with-ids` only if the person asks where it comes from or is going to audit it.
+- **An `UNDECLARED_SUPERSESSION` warning** means another record says in prose that it supersedes the one queried without declaring it: it may not be in force as shown. Say so in the answer instead of presenting it as in force.
 
-`enlaces` revisa los enlaces internos y las anclas de los Markdown del repositorio: destinos que no existen o se escriben con otras mayúsculas, fragmentos que el destino no tiene y rutas absolutas locales. Arregla los que haya roto tu cambio. Los de un registro ya integrado no se arreglan editándolo: se declaran en `enlaces.deuda` de la instalación o se propone el cambio.
+## Records
 
-## Qué devuelves
+A record is a Markdown file with a YAML header in one of the folders of `records_folder`. When you touch them:
 
-Al guardar, nada que contar salvo que falle. Al retomar, en pocas frases: el objetivo, lo que hay que volver a comprobar y lo que necesita confirmación. De una comprobación, el estado y lo que falló, sin el sobre entero.
+- **Validate every record you edit**, before considering it written: `kbol validate --mode proposal <file>.md`.
+- **What is accepted is not edited.** A change of state (accepting, closing, retiring) is an event that comes in through integration, with the approval the installation asks for. A decision always comes in as a proposal. `kbol drift . --folder <folders>` lists the records that differ from what was integrated: a drift is a hand edit to be undone or proposed.
+- **Integration is `kbol propose`**, with the `integration` block of the installation. Without `--until` it only does a dry run and changes nothing; if an approval is missing, it returns the package to show to whoever approves. Actually integrating and pushing (`--until integrate`, `--until push`) need their express authorization. The procedure for adding records (which record fits which situation, how it is numbered, whom to ask) is the repository's.
+
+## Sources and links
+
+Two read-only checks, useful before proposing and when closing a task that touched documentation:
+
+```bash
+kbol integrity . --folder <folders> [--store <store folder>]
+kbol links . [--folder <folders>] [--installation <installation>]
+```
+
+`integrity` compares the `sha256` of each source with the bytes at its `location`. `altered` or `missing` is a failure to report. `unchecked` accuses nobody: the original could not be looked at from this machine (no store, a revision not fetched, a URL), and its `cause` says why.
+
+`links` reviews the internal links and anchors of the repository's Markdown files: targets that do not exist or are written with other capitalization, fragments the target does not have and local absolute paths. Fix those your change broke. Those of an already integrated record are not fixed by editing it: they are declared in the installation's `links.debt` or the change is proposed.
+
+## What you return
+
+When saving, nothing to tell unless it fails. When resuming, in a few sentences: the goal, what has to be checked again and what needs confirmation. From a check, the state and what failed, without the whole envelope.

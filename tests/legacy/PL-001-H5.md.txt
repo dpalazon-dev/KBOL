@@ -1,0 +1,38 @@
+---
+type: Milestone
+id: PL-001-H5
+title: "Purge of old copies"
+class: record
+status: draft
+state: Pending
+owner: Owner and systems team
+depends_on: ["PL-001-H1", "PL-001-H2", "PL-001-H3", "PL-001-H4", "PL-001-H6", "PL-001-H7"]
+closes: ["QD-004", "QD-051"]
+advances: ["QD-130", "QD-131", "QD-132"]
+tests: "—"
+produces: "—"
+evidence: "—"
+---
+
+# PL-001-H5 · Purge of old copies
+
+## Goal
+
+No copies of the catalog with old personal data remain.
+
+## Scope
+
+The backups made before 26 Oct 2026.
+
+## Verification
+
+An inventory of copies with none older than that date.
+
+## Tasks
+
+* Take an inventory of the copies.
+* Delete those older than the cut-off.
+
+## Notes
+
+Record invented for the KBOL tests.

@@ -1,23 +1,23 @@
-"""Sobre contractual de la CLI: mismos campos en todas las operaciones y fallo cerrado."""
+"""Contract envelope of the CLI: same fields in every operation and closed failure."""
 
 import json
 import subprocess
 import sys
 
 import pytest
-from conftest import CUERPO_DECISION, registro
+from conftest import DECISION_BODY, record
 
-from kbol.core import serializar
+from kbol.core import serialize
 
-CAMPOS = {
-    "operacion",
-    "operacion_id",
+FIELDS = {
+    "operation",
+    "operation_id",
     "revision",
-    "valido_en",
-    "conocido_hasta",
-    "resultado",
-    "advertencias",
-    "cobertura",
+    "valid_at",
+    "known_until",
+    "result",
+    "warnings",
+    "coverage",
 }
 
 
@@ -28,80 +28,82 @@ def kb(*args, cwd=None):
     return p.returncode, json.loads(p.stdout)
 
 
-def test_validar_registro_valido(tmp_path):
-    f = tmp_path / "DEC-EJEMPLO.md"
-    f.write_text(serializar(registro("decision"), CUERPO_DECISION), encoding="utf-8", newline="\n")
-    code, out = kb("validar", str(f))
-    assert code == 0 and set(out) == CAMPOS
-    assert out["operacion"] == "validar" and out["resultado"]["estado"] == "completado"
-    assert out["resultado"]["errores"] == []
-    assert out["valido_en"] is None and out["conocido_hasta"] is None
-    assert "autoridad" in out["cobertura"]["no_evaluado"]
+def test_validate_valid_record(tmp_path):
+    f = tmp_path / "DEC-EXAMPLE.md"
+    f.write_text(serialize(record("decision"), DECISION_BODY), encoding="utf-8", newline="\n")
+    code, out = kb("validate", str(f))
+    assert code == 0 and set(out) == FIELDS
+    assert out["operation"] == "validate" and out["result"]["state"] == "completed"
+    assert out["result"]["errors"] == []
+    assert out["valid_at"] is None and out["known_until"] is None
+    assert "authority" in out["coverage"]["not_evaluated"]
 
 
-def test_validar_registro_invalido(tmp_path):
+def test_validate_invalid_record(tmp_path):
     f = tmp_path / "x.md"
     f.write_text("---\nid: DEC-A\n---\n", encoding="utf-8")
-    code, out = kb("validar", str(f))
-    assert code == 1 and out["resultado"]["estado"] == "fallido"
-    assert {e["codigo"] for e in out["resultado"]["errores"]} == {"ESQUEMA_INVALIDO"}
+    code, out = kb("validate", str(f))
+    assert code == 1 and out["result"]["state"] == "failed"
+    assert {e["code"] for e in out["result"]["errors"]} == {"INVALID_SCHEMA"}
 
 
-def test_ruta_ausente_y_argumento_vacio(tmp_path):
-    code, out = kb("validar", str(tmp_path / "no.md"))
-    assert code == 1 and out["resultado"]["codigo"] == "REFERENCIA_AUSENTE"
-    code, out = kb("validar", "")
-    assert code == 2 and out["resultado"]["estado"] == "bloqueado"
+def test_missing_path_and_empty_argument(tmp_path):
+    code, out = kb("validate", str(tmp_path / "no.md"))
+    assert code == 1 and out["result"]["code"] == "MISSING_REFERENCE"
+    code, out = kb("validate", "")
+    assert code == 2 and out["result"]["state"] == "blocked"
 
 
-@pytest.mark.parametrize("op", ["ingerir"])
-def test_capacidades_no_habilitadas_fallan_cerradas(op):
+@pytest.mark.parametrize("op", ["ingest"])
+def test_capabilities_not_enabled_fail_closed(op):
     code, out = kb(op)
-    assert code == 2 and set(out) == CAMPOS
-    assert out["resultado"] == {
-        "estado": "bloqueado",
-        "codigo": None,
-        "motivo": "capacidad no habilitada en esta versión",
+    assert code == 2 and set(out) == FIELDS
+    assert out["result"] == {
+        "state": "blocked",
+        "code": None,
+        "reason": "capability not enabled in this version",
     }
 
 
-def test_migrar_en_seco_no_escribe(tmp_path):
+def test_dry_run_migrate_does_not_write(tmp_path):
     f = tmp_path / "QD-1.md"
-    texto = "---\ntype: Pregunta\nid: QD-001\nestado: Abierta\n---\nx\n"
-    f.write_text(texto, encoding="utf-8")
-    code, out = kb("migrar", str(tmp_path), "--revision", "r1")
+    text = "---\ntype: Question\nid: QD-001\nstatus: Open\n---\nx\n"
+    f.write_text(text, encoding="utf-8")
+    code, out = kb("migrate", str(tmp_path), "--revision", "r1")
     assert code == 0 and out["revision"] == "r1"
-    assert out["resultado"]["resumen"]["total"] == 1
-    assert f.read_text(encoding="utf-8") == texto
+    assert out["result"]["summary"]["total"] == 1
+    assert f.read_text(encoding="utf-8") == text
 
 
-def test_digest_de_registro_invalido_o_efectos_malos(tmp_path):
+def test_digest_of_invalid_record_or_bad_effects(tmp_path):
     f = tmp_path / "x.md"
     f.write_text("---\nid: DEC-A\n---\n", encoding="utf-8")
     code, out = kb("digest", str(f))
-    assert code == 1 and out["resultado"]["estado"] == "fallido"
-    g = tmp_path / "DEC-EJEMPLO.md"
-    g.write_text(serializar(registro("decision"), CUERPO_DECISION), encoding="utf-8", newline="\n")
-    for contenido in ("{malo", '[{"estado_nuevo": "aceptada", "estado_nuevo": "rechazada"}]', '{"cualquier": 1}'):
-        efectos = tmp_path / "efectos.json"
-        efectos.write_text(contenido, encoding="utf-8")
-        code, out = kb("digest", str(g), "--efectos", str(efectos))
-        assert code == 1 and out["resultado"]["codigo"] == "ESQUEMA_INVALIDO", contenido
+    assert code == 1 and out["result"]["state"] == "failed"
+    g = tmp_path / "DEC-EXAMPLE.md"
+    g.write_text(serialize(record("decision"), DECISION_BODY), encoding="utf-8", newline="\n")
+    for content in ("{bad", '[{"new_state": "accepted", "new_state": "rejected"}]', '{"anything": 1}'):
+        effects = tmp_path / "effects.json"
+        effects.write_text(content, encoding="utf-8")
+        code, out = kb("digest", str(g), "--effects", str(effects))
+        assert code == 1 and out["result"]["code"] == "INVALID_SCHEMA", content
 
 
-def test_digest_por_cli(tmp_path):
-    f = tmp_path / "DEC-EJEMPLO.md"
-    f.write_text(serializar(registro("decision"), CUERPO_DECISION), encoding="utf-8", newline="\n")
-    efectos = tmp_path / "efectos.json"
-    efectos.write_text("[]", encoding="utf-8")
-    code, out = kb("digest", str(f), "--efectos", str(efectos))
+def test_digest_through_cli(tmp_path):
+    f = tmp_path / "DEC-EXAMPLE.md"
+    f.write_text(serialize(record("decision"), DECISION_BODY), encoding="utf-8", newline="\n")
+    effects = tmp_path / "effects.json"
+    effects.write_text("[]", encoding="utf-8")
+    code, out = kb("digest", str(f), "--effects", str(effects))
     from kbol.digest import digest
 
-    assert code == 0 and out["resultado"]["digest"] == digest(registro("decision"), CUERPO_DECISION, [])
+    assert code == 0 and out["result"]["digest"] == digest(record("decision"), DECISION_BODY, [])
 
 
-def test_version_dice_la_version_instalada():
+def test_version_says_the_installed_version():
     import kbol
 
-    p = subprocess.run([sys.executable, "-m", "kbol.cli", "--version"], capture_output=True, text=True, encoding="utf-8")
+    p = subprocess.run(
+        [sys.executable, "-m", "kbol.cli", "--version"], capture_output=True, text=True, encoding="utf-8"
+    )
     assert p.returncode == 0 and p.stdout.strip() == f"kbol {kbol.__version__}"

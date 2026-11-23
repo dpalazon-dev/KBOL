@@ -1,0 +1,18 @@
+[
+  {
+    "installed_sha256": "9e8cba8bcb85e578cedcbee5a760cc94992e0fc3dcde7e059e65bd891fa483e0",
+    "file": "KB-DPP-core.md",
+    "envelope": "Local documentary header; English edition 1.0 of the Spanish core 0.7, with the field names of docs/glossary-es-en.md and no semantic change",
+    "source": "Spanish edition: KB-DPP core 0.7 (docs/referencias/KB-DPP-nucleo.md up to KBOL 0.12)",
+    "source_sha256": "fe8319799d24d5a0b8e52b76ba1c7699624d9a47df51a4012d55009146dfb61c",
+    "source_original_sha256": "fc23eb0bbf88e189038a20ae1ab84ca0504ade9d3f1d4e024fe3053f868fb1d4"
+  },
+  {
+    "installed_sha256": "a3e584348db0f4586e54a0c066a1684f0d311742ea80ce3140b5fb740cd7d2d4",
+    "file": "KB-DPP-implementation.md",
+    "envelope": "Local documentary header; English edition 1.0 of the Spanish implementation 0.8, with the field names of docs/glossary-es-en.md and no semantic change",
+    "source": "Spanish edition: KB-DPP implementation 0.8 (docs/referencias/KB-DPP-implementacion.md up to KBOL 0.12)",
+    "source_sha256": "090bc898f5b78c9ebc3082b9d6343cecb27a030ddaf9b06d80585373539813fb",
+    "source_original_sha256": "a7eb6fbfe6a8a7b715e0285f2755b85a67b544883b6c9c4e534857f1b6a46cce"
+  }
+]

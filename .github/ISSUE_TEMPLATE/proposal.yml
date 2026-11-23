@@ -1,0 +1,39 @@
+name: Proposal
+description: A change or a new capability for KBOL
+title: "[proposal] "
+labels: ["proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A new capability is discussed here before opening a pull request.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened to you or what you cannot do today, with a concrete case.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What would change in the CLI, the schema or the documentation.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: What you already tried with KBOL as it is, or other tools.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of change
+      options:
+        - Improvement of something that already exists
+        - New capability
+        - Documentation
+        - Change to the KB-DPP contract
+    validations:
+      required: true

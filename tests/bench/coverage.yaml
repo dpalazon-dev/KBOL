@@ -1,0 +1,63 @@
+# Coverage of the "Minimum prior test bench" of docs/reference/KB-DPP-implementation.md.
+# One entry per case, with the exact text of the "Case" cell. Each one carries
+# exactly one of these keys:
+#   tests: pytest ids of existing tests that exercise the case.
+#   not_enabled: capability not enabled yet and why it cannot be tested today.
+#   pending: test file in progress; once it exists, it has to be replaced by real ids.
+
+"Human ratification declared only in YAML":
+  tests:
+    - tests/test_authority.py::test_esc03_1_verified_written_by_the_agent_is_not_an_approval
+
+"Content modified after approval":
+  tests:
+    - tests/test_authority.py::test_esc03_3_content_changed_after_review_goes_stale
+    - tests/test_integrate.py::test_content_changed_after_the_review
+    - tests/test_declared.py::test_digests_different_from_what_was_shown_make_the_approval_stale
+
+"Role change that authorizes itself":
+  tests:
+    - tests/test_integrate.py::test_esc03_4_a_person_does_not_grant_herself_the_role_she_uses_to_approve
+    - tests/test_declared.py::test_a_person_does_not_grant_herself_the_role_she_uses_to_approve
+
+"Partial replacement and pending proposal":
+  tests:
+    - tests/test_consolidate.py::test_esc01_partial_replacement_without_losing_conditions
+    - tests/test_context.py::test_package_with_in_force_constraints_and_proposals_apart
+
+"Two incompatible changes":
+  tests:
+    - tests/test_consolidate.py::test_esc01_conflict_variant
+    - tests/test_integrate.py::test_two_accepted_replacements_of_the_same_clause_are_a_conflict
+
+"Historical query with late correction":
+  tests:
+    - tests/test_consolidate.py::test_esc02_query_b_retroactive
+    - tests/test_consolidate.py::test_esc02_query_c_two_knowledge_cuts
+
+"Decisive evidence omitted":
+  tests:
+    - tests/test_query.py::test_a_citation_of_a_missing_source_is_insufficient_evidence
+    - tests/test_context.py::test_partial_load_does_not_take_the_package_as_complete
+
+"Synthesis whose source text does not change but loses validity":
+  tests:
+    - tests/test_support.py::test_synthesis_whose_text_does_not_change_but_loses_validity
+    - tests/test_cli_support.py::test_two_pairs_of_cuts_return_the_change_and_its_chain
+
+"Resumption with non-integrated changes":
+  tests:
+    - tests/test_handoff.py::test_esc05_the_handoff_keeps_limits_and_takes_nothing_for_granted
+    - tests/test_handoff.py::test_local_and_foreign_changes
+    - tests/test_context.py::test_the_goal_comes_from_the_handoff_if_not_given
+
+"Completed write with lost response":
+  tests:
+    - tests/test_integrate.py::test_lost_response_is_reconciled_from_the_commit
+    - tests/test_integrate.py::test_esc03_5_repeating_the_operation_returns_the_receipt_without_second_acceptance
+
+"Partial source or reprocessed locator":
+  tests:
+    - tests/test_citations.py::test_missing_original_is_uncheckable
+    - tests/test_citations.py::test_representation_of_another_original
+    - tests/test_locator.py::test_round_trip_norm_pdf

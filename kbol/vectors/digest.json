@@ -1,0 +1,289 @@
+[
+  {
+    "name": "minimal",
+    "record": {
+      "id": "DEC-V1",
+      "type": "decision",
+      "class": "record",
+      "title": "T",
+      "description": "D",
+      "scope": "a",
+      "author": "human:x",
+      "state": "proposed",
+      "events": [],
+      "sources": []
+    },
+    "body": "x\ny",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"human:x\",\"body\":\"x\\ny\",\"class\":\"record\",\"description\":\"D\",\"fields\":{\"sources\":[]},\"id\":\"DEC-V1\",\"requested_effects\":[],\"scope\":\"a\",\"title\":\"T\",\"type\":\"decision\"}",
+    "sha256": "6f8c748cdc7e7fd59e88dc12140cf286d5a84ac6209f64579559522ca81fc867"
+  },
+  {
+    "name": "crlf_in_body",
+    "record": {
+      "id": "DEC-V1",
+      "type": "decision",
+      "class": "record",
+      "title": "T",
+      "description": "D",
+      "scope": "a",
+      "author": "human:x",
+      "state": "proposed",
+      "events": [],
+      "sources": []
+    },
+    "body": "x\r\ny\r",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"human:x\",\"body\":\"x\\ny\\n\",\"class\":\"record\",\"description\":\"D\",\"fields\":{\"sources\":[]},\"id\":\"DEC-V1\",\"requested_effects\":[],\"scope\":\"a\",\"title\":\"T\",\"type\":\"decision\"}",
+    "sha256": "3f4902266fbf950658490637d9b10a91e527ce07bc8f7949a4a35f0a2ba62b74"
+  },
+  {
+    "name": "unicode_composed",
+    "record": {
+      "id": "DEC-V1",
+      "type": "decision",
+      "class": "record",
+      "title": "Café",
+      "description": "D",
+      "scope": "a",
+      "author": "human:x",
+      "state": "proposed",
+      "events": [],
+      "sources": []
+    },
+    "body": "é",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"human:x\",\"body\":\"é\",\"class\":\"record\",\"description\":\"D\",\"fields\":{\"sources\":[]},\"id\":\"DEC-V1\",\"requested_effects\":[],\"scope\":\"a\",\"title\":\"Café\",\"type\":\"decision\"}",
+    "sha256": "151f10613008ffba781a6fb75479856ae25fcc58ca7f244bec596d5526747019"
+  },
+  {
+    "name": "unicode_decomposed",
+    "record": {
+      "id": "DEC-V1",
+      "type": "decision",
+      "class": "record",
+      "title": "Café",
+      "description": "D",
+      "scope": "a",
+      "author": "human:x",
+      "state": "proposed",
+      "events": [],
+      "sources": []
+    },
+    "body": "é",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"human:x\",\"body\":\"é\",\"class\":\"record\",\"description\":\"D\",\"fields\":{\"sources\":[]},\"id\":\"DEC-V1\",\"requested_effects\":[],\"scope\":\"a\",\"title\":\"Café\",\"type\":\"decision\"}",
+    "sha256": "0f1ad156fa84cdfaa6a273686c8ce1390d9c45d2591ca9277a758eae3d36bb6b"
+  },
+  {
+    "name": "outside_the_bmp",
+    "record": {
+      "id": "DEC-V1",
+      "type": "decision",
+      "class": "record",
+      "title": "Clef 𝄞",
+      "description": "D",
+      "scope": "a",
+      "author": "human:x",
+      "state": "proposed",
+      "events": [],
+      "sources": []
+    },
+    "body": "💧",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"human:x\",\"body\":\"💧\",\"class\":\"record\",\"description\":\"D\",\"fields\":{\"sources\":[]},\"id\":\"DEC-V1\",\"requested_effects\":[],\"scope\":\"a\",\"title\":\"Clef 𝄞\",\"type\":\"decision\"}",
+    "sha256": "0d2abd7a7df052c7f9528777e08e3cce671d64239cb76389c9264ff388889a56"
+  },
+  {
+    "name": "controls",
+    "record": {
+      "id": "DEC-V1",
+      "type": "decision",
+      "class": "record",
+      "title": "T",
+      "description": "D",
+      "scope": "a",
+      "author": "human:x",
+      "state": "proposed",
+      "events": [],
+      "sources": [],
+      "criteria": [
+        "nul\u0000",
+        "bel\u0007",
+        "esc\u001b",
+        "del",
+        "ls "
+      ]
+    },
+    "body": "",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"human:x\",\"body\":\"\",\"class\":\"record\",\"description\":\"D\",\"fields\":{\"criteria\":[\"nul\\u0000\",\"bel\\u0007\",\"esc\\u001b\",\"del\",\"ls \"],\"sources\":[]},\"id\":\"DEC-V1\",\"requested_effects\":[],\"scope\":\"a\",\"title\":\"T\",\"type\":\"decision\"}",
+    "sha256": "9a085c9c215c96b0d8d8377936e23a7c0b9b820974a5773620f56d1c0aedd133"
+  },
+  {
+    "name": "escapes_and_integers",
+    "record": {
+      "id": "DEC-V1",
+      "type": "decision",
+      "class": "record",
+      "title": "T",
+      "description": "D",
+      "scope": "a",
+      "author": "human:x",
+      "state": "proposed",
+      "events": [],
+      "sources": [],
+      "criteria": [
+        "a\"b",
+        "c\\d",
+        "tab\tend"
+      ],
+      "timeout": 600
+    },
+    "body": "",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"human:x\",\"body\":\"\",\"class\":\"record\",\"description\":\"D\",\"fields\":{\"criteria\":[\"a\\\"b\",\"c\\\\d\",\"tab\\tend\"],\"sources\":[],\"timeout\":600},\"id\":\"DEC-V1\",\"requested_effects\":[],\"scope\":\"a\",\"title\":\"T\",\"type\":\"decision\"}",
+    "sha256": "33fbd52d717afc9106f7b099bbef17b8b5a8d1b9be9df47e48351e4432b1e0d2"
+  },
+  {
+    "name": "nested_maps",
+    "record": {
+      "id": "DEC-V1",
+      "type": "decision",
+      "class": "record",
+      "title": "T",
+      "description": "D",
+      "scope": "a",
+      "author": "human:x",
+      "state": "proposed",
+      "events": [],
+      "sources": [],
+      "vetoes": [
+        {
+          "use": "u",
+          "pattern": "p",
+          "exclusions": [],
+          "scope": "a"
+        }
+      ]
+    },
+    "body": "",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"human:x\",\"body\":\"\",\"class\":\"record\",\"description\":\"D\",\"fields\":{\"sources\":[],\"vetoes\":[{\"exclusions\":[],\"pattern\":\"p\",\"scope\":\"a\",\"use\":\"u\"}]},\"id\":\"DEC-V1\",\"requested_effects\":[],\"scope\":\"a\",\"title\":\"T\",\"type\":\"decision\"}",
+    "sha256": "5260cbb89e11b8e3aad7a1f45804eb9b9f412b844ad716647d43e8e775046248"
+  },
+  {
+    "name": "contract_example",
+    "record": {
+      "id": "DEC-EXAMPLE",
+      "type": "decision",
+      "class": "record",
+      "title": "Report delivery schedule",
+      "description": "Deliver the report on Tuesdays using only verified data.",
+      "scope": "operations",
+      "state": "proposed",
+      "author": "example-agent/1",
+      "events": [],
+      "sources": [],
+      "authorized_by": [
+        "ROLE-EXAMPLE"
+      ],
+      "alternatives": [
+        {
+          "id": "A",
+          "description": "Delivery on Mondays.",
+          "selected": false,
+          "reason": "It leaves no day to verify the data of the weekly close."
+        },
+        {
+          "id": "B",
+          "description": "Delivery on Tuesdays.",
+          "selected": true,
+          "reason": "It reserves Monday to verify the data."
+        }
+      ],
+      "criteria": [
+        "Availability of verified data",
+        "Delivery deadline"
+      ],
+      "rationale": "It is proposed to reserve one day for verification."
+    },
+    "body": "<clause id=\"C1\">\nThe report is delivered on Tuesdays.\n</clause>\n\n<clause id=\"C2\">\nThe report only includes verified data.\n</clause>\n",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"example-agent/1\",\"body\":\"<clause id=\\\"C1\\\">\\nThe report is delivered on Tuesdays.\\n</clause>\\n\\n<clause id=\\\"C2\\\">\\nThe report only includes verified data.\\n</clause>\\n\",\"class\":\"record\",\"description\":\"Deliver the report on Tuesdays using only verified data.\",\"fields\":{\"alternatives\":[{\"description\":\"Delivery on Mondays.\",\"id\":\"A\",\"reason\":\"It leaves no day to verify the data of the weekly close.\",\"selected\":false},{\"description\":\"Delivery on Tuesdays.\",\"id\":\"B\",\"reason\":\"It reserves Monday to verify the data.\",\"selected\":true}],\"authorized_by\":[\"ROLE-EXAMPLE\"],\"criteria\":[\"Availability of verified data\",\"Delivery deadline\"],\"rationale\":\"It is proposed to reserve one day for verification.\",\"sources\":[]},\"id\":\"DEC-EXAMPLE\",\"requested_effects\":[],\"scope\":\"operations\",\"title\":\"Report delivery schedule\",\"type\":\"decision\"}",
+    "sha256": "1cc246fde2f9e0abb2aa3fee678aca6fc2d3004b6007e2d013761745c4a03b93"
+  },
+  {
+    "name": "contract_example_with_acceptance",
+    "record": {
+      "id": "DEC-EXAMPLE",
+      "type": "decision",
+      "class": "record",
+      "title": "Report delivery schedule",
+      "description": "Deliver the report on Tuesdays using only verified data.",
+      "scope": "operations",
+      "state": "proposed",
+      "author": "example-agent/1",
+      "events": [],
+      "sources": [],
+      "authorized_by": [
+        "ROLE-EXAMPLE"
+      ],
+      "alternatives": [
+        {
+          "id": "A",
+          "description": "Delivery on Mondays.",
+          "selected": false,
+          "reason": "It leaves no day to verify the data of the weekly close."
+        },
+        {
+          "id": "B",
+          "description": "Delivery on Tuesdays.",
+          "selected": true,
+          "reason": "It reserves Monday to verify the data."
+        }
+      ],
+      "criteria": [
+        "Availability of verified data",
+        "Delivery deadline"
+      ],
+      "rationale": "It is proposed to reserve one day for verification."
+    },
+    "body": "<clause id=\"C1\">\nThe report is delivered on Tuesdays.\n</clause>\n\n<clause id=\"C2\">\nThe report only includes verified data.\n</clause>\n",
+    "requested_effects": [
+      {
+        "previous_state": "proposed",
+        "new_state": "accepted",
+        "valid_from": "2026-11-15T00:00:00Z"
+      }
+    ],
+    "bytes": "{\"author\":\"example-agent/1\",\"body\":\"<clause id=\\\"C1\\\">\\nThe report is delivered on Tuesdays.\\n</clause>\\n\\n<clause id=\\\"C2\\\">\\nThe report only includes verified data.\\n</clause>\\n\",\"class\":\"record\",\"description\":\"Deliver the report on Tuesdays using only verified data.\",\"fields\":{\"alternatives\":[{\"description\":\"Delivery on Mondays.\",\"id\":\"A\",\"reason\":\"It leaves no day to verify the data of the weekly close.\",\"selected\":false},{\"description\":\"Delivery on Tuesdays.\",\"id\":\"B\",\"reason\":\"It reserves Monday to verify the data.\",\"selected\":true}],\"authorized_by\":[\"ROLE-EXAMPLE\"],\"criteria\":[\"Availability of verified data\",\"Delivery deadline\"],\"rationale\":\"It is proposed to reserve one day for verification.\",\"sources\":[]},\"id\":\"DEC-EXAMPLE\",\"requested_effects\":[{\"new_state\":\"accepted\",\"previous_state\":\"proposed\",\"valid_from\":\"2026-11-15T00:00:00Z\"}],\"scope\":\"operations\",\"title\":\"Report delivery schedule\",\"type\":\"decision\"}",
+    "sha256": "076e31ebae2d5aa93ec0a145f397f6973733ee30cb1d37c1d59931da566628bb"
+  },
+  {
+    "name": "partial_amendment",
+    "record": {
+      "id": "DEC-B",
+      "type": "decision",
+      "class": "record",
+      "title": "T",
+      "description": "D",
+      "scope": "a",
+      "author": "human:x",
+      "state": "proposed",
+      "events": [],
+      "sources": [],
+      "amends": [
+        {
+          "target": "DEC-A#C1",
+          "operation": "replaces",
+          "by": "DEC-B#C1"
+        }
+      ]
+    },
+    "body": "<clause id=\"C1\">\nThe report is delivered on Tuesdays.\n</clause>\n",
+    "requested_effects": [],
+    "bytes": "{\"author\":\"human:x\",\"body\":\"<clause id=\\\"C1\\\">\\nThe report is delivered on Tuesdays.\\n</clause>\\n\",\"class\":\"record\",\"description\":\"D\",\"fields\":{\"amends\":[{\"by\":\"DEC-B#C1\",\"operation\":\"replaces\",\"target\":\"DEC-A#C1\"}],\"sources\":[]},\"id\":\"DEC-B\",\"requested_effects\":[],\"scope\":\"a\",\"title\":\"T\",\"type\":\"decision\"}",
+    "sha256": "f49d4e16272ca5dd3b971c0c98899273ffeddff90f80081dae1bcf32cd54b2ae"
+  }
+]

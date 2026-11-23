@@ -1,4 +1,4 @@
-"""Registros mínimos válidos por tipo, con IDs del corpus de prueba del contrato."""
+"""Minimal valid records per type, with IDs from the contract test corpus."""
 
 import copy
 
@@ -8,170 +8,170 @@ T0 = "2026-11-01T00:00:00Z"
 T1 = "2026-11-02T00:00:00Z"
 
 BASE = {
-    "clase": "registro",
-    "title": "Título",
-    "description": "Una línea.",
-    "ambito": "operaciones",
-    "autor": "agente-ejemplo/1",
-    "eventos": [],
+    "class": "record",
+    "title": "Title",
+    "description": "One line.",
+    "scope": "operations",
+    "author": "example-agent/1",
+    "events": [],
     "sources": [],
 }
 
-POR_TIPO = {
+BY_TYPE = {
     "decision": dict(
-        id="DEC-EJEMPLO",
-        estado="propuesta",
-        autorizado_por=["ROL-EJEMPLO"],
-        alternativas=[
-            dict(id="A", descripcion="Lunes.", seleccionada=False, motivo="Sin día de verificación."),
-            dict(id="B", descripcion="Martes.", seleccionada=True, motivo="Reserva el lunes."),
+        id="DEC-EXAMPLE",
+        state="proposed",
+        authorized_by=["ROLE-EXAMPLE"],
+        alternatives=[
+            dict(id="A", description="Monday.", selected=False, reason="No day to check."),
+            dict(id="B", description="Tuesday.", selected=True, reason="Keeps Monday free."),
         ],
-        criterios=["Datos verificados", "Plazo"],
-        justificacion="Reservar un día.",
+        criteria=["Checked data", "Deadline"],
+        rationale="Keep a day free.",
     ),
-    "hecho": dict(
-        id="HE-A",
-        estado="propuesta",
-        afirmacion="La tabla 2 da 5 m3/h.",
-        clase_evidencia="observado",
-        basada_en=["F-A"],
-        fecha="2026-10-30",
-        precision="dia",
+    "fact": dict(
+        id="FACT-A",
+        state="proposed",
+        claim="Table 2 gives 5 m3/h.",
+        evidence_class="observed",
+        based_on=["SRC-A"],
+        date="2026-10-30",
+        precision="day",
     ),
-    "fuente": dict(
-        id="F-A",
-        estado="registrada",
-        subtipo="original",
-        origen="Correo del explotador",
-        ubicacion="fuentes/F-A.pdf",
-        formato="application/pdf",
+    "source": dict(
+        id="SRC-A",
+        state="registered",
+        subtype="original",
+        origin="Email from the operator",
+        location="sources/SRC-A.pdf",
+        format="application/pdf",
         sha256="a" * 64,
-        acceso="lectura-comun",
+        access="common-read",
     ),
-    "persona": dict(
+    "person": dict(
         id="PER-A",
-        estado="propuesta",
-        naturaleza="humana",
-        identidad_ref="github:1",
-        ocupa=[{"rol": "ROL-EJEMPLO", "desde": T0}],
+        state="proposed",
+        nature="human",
+        identity_ref="github:1",
+        holds=[{"role": "ROLE-EXAMPLE", "from": T0}],
     ),
-    "rol": dict(
-        id="ROL-EJEMPLO", estado="propuesta", ambitos=["operaciones"], capacidades=["ratificar"], regla_aprobacion="uno"
+    "role": dict(
+        id="ROLE-EXAMPLE", state="proposed", scopes=["operations"], capabilities=["ratify"], approval_rule="one"
     ),
-    "pregunta": dict(
-        id="Q-A", estado="abierta", subtipo="incognita", responsable="ROL-EJEMPLO", condicion_cierre="Medida."
+    "question": dict(
+        id="Q-A", state="open", subtype="unknown", owner="ROLE-EXAMPLE", closing_condition="Measured."
     ),
-    "hipotesis": dict(
-        id="HIP-A",
-        estado="abierta",
-        afirmacion="X",
-        plan_prueba="Y",
-        criterio_refutacion="Z",
-        consecuencia_si_falla="W",
+    "hypothesis": dict(
+        id="HYP-A",
+        state="open",
+        claim="X",
+        test_plan="Y",
+        refutation_criterion="Z",
+        consequence_if_fails="W",
     ),
-    "supuesto": dict(id="SUP-A", estado="activo", afirmacion="X", revisar_en="2026-12-01", consecuencia_si_falla="W"),
-    "entidad": dict(id="ENT-A", estado="propuesta", nombre="Planta", alias=["EDAR"], clase_entidad="instalacion"),
+    "assumption": dict(id="ASM-A", state="active", claim="X", review_at="2026-12-01", consequence_if_fails="W"),
+    "entity": dict(id="ENT-A", state="proposed", name="Plant", aliases=["WWTP"], entity_class="installation"),
     "plan": dict(
-        id="PL-A",
-        estado="propuesto",
-        objetivo="O",
-        hitos=["HI-A"],
-        autorizado_por=["ROL-EJEMPLO"],
-        restricciones=["No enviar"],
+        id="PLAN-A",
+        state="proposed",
+        goal="O",
+        milestones=["MS-A"],
+        authorized_by=["ROLE-EXAMPLE"],
+        constraints=["Do not send"],
     ),
-    "hito": dict(
-        id="HI-A",
-        estado="propuesto",
-        objetivo="Preparar el informe",
-        alcance="Rama propia",
-        autorizado_por=["ROL-EJEMPLO"],
-        aceptacion=[dict(criterio_id="K1", descripcion="Tests", metodo="comando", obligatorio=True)],
-        tolerancias={"tiempo": "2h"},
-        verificaciones=[
+    "milestone": dict(
+        id="MS-A",
+        state="proposed",
+        goal="Prepare the report",
+        work_scope="Own branch",
+        authorized_by=["ROLE-EXAMPLE"],
+        acceptance=[dict(criterion_id="K1", description="Tests", method="command", required=True)],
+        tolerances={"time": "2h"},
+        checks=[
             dict(
-                verificacion_id="V1",
-                criterio_id="K1",
-                ejecutor="pytest",
-                entrada={"argv": ["-q"]},
-                entorno_ref="local",
+                check_id="V1",
+                criterion_id="K1",
+                executor="pytest",
+                input={"argv": ["-q"]},
+                environment_ref="local",
                 timeout=600,
-                efectos_permitidos=[],
+                permitted_effects=[],
             )
         ],
     ),
-    "sintesis": dict(id="SIN-A", estado="borrador", dependencias=["DEC-EJEMPLO#C1"], evaluaciones=[]),
+    "synthesis": dict(id="SYN-A", state="draft", dependencies=["DEC-EXAMPLE#C1"], evaluations=[]),
 }
 
-CUERPO_DECISION = '<clausula id="C1">\nEl informe se entrega los martes.\n</clausula>\n'
+DECISION_BODY = '<clause id="C1">\nThe report is delivered on Tuesdays.\n</clause>\n'
 
 
-def registro(tipo, **cambios):
+def record(type_, **changes):
     r = copy.deepcopy(BASE)
-    r["type"] = tipo
-    r.update(copy.deepcopy(POR_TIPO[tipo]))
-    r.update(cambios)
+    r["type"] = type_
+    r.update(copy.deepcopy(BY_TYPE[type_]))
+    r.update(changes)
     return r
 
 
-def evento(tipo_evento="transicion", **cambios):
+def event(event_type="transition", **changes):
     e = dict(
-        evento_id="E1",
-        tipo_evento=tipo_evento,
-        actor="process:integrador",
-        registrado_en=T0,
-        valido_desde=T0,
-        motivo="m",
-        evidencia_evento={"mecanismo": "github-review", "comprobante": "review:1"},
+        event_id="E1",
+        event_type=event_type,
+        actor="process:integrator",
+        recorded_at=T0,
+        valid_from=T0,
+        reason="m",
+        event_evidence={"mechanism": "github-review", "proof": "review:1"},
     )
-    e.update(cambios)
+    e.update(changes)
     return e
 
 
-def cuerpo_de(clausulas):
-    return "".join(f'<clausula id="{a}">\n{t}\n</clausula>\n\n' for a, t in clausulas.items())
+def body_of(clauses):
+    return "".join(f'<clause id="{a}">\n{t}\n</clause>\n\n' for a, t in clauses.items())
 
 
-def decision(ident, clausulas, registrado=T0, valido=None, hasta=None, estado="aceptada", **extra):
-    """(registro, cuerpo) de una decisión con historial admitido: creación, ratificación y aceptación."""
-    eventos = [
-        evento(
-            "creacion",
-            evento_id="E0",
-            estado_anterior=None,
-            estado_nuevo="propuesta",
-            registrado_en=registrado,
-            valido_desde=registrado,
+def decision(ident, clauses, recorded=T0, valid=None, until=None, state="accepted", **extra):
+    """(record, body) of a decision with an admitted history: creation, ratification and acceptance."""
+    events = [
+        event(
+            "creation",
+            event_id="E0",
+            previous_state=None,
+            new_state="proposed",
+            recorded_at=recorded,
+            valid_from=recorded,
         )
     ]
-    if estado == "aceptada":
-        aprob = dict(
-            aprobacion_id=f"AP-{ident}",
+    if state == "accepted":
+        appr = dict(
+            approval_id=f"AP-{ident}",
             actor="human:david",
-            identidad_ref="github:1",
-            roles=["ROL-EJEMPLO"],
+            identity_ref="github:1",
+            roles=["ROLE-EXAMPLE"],
             digest="b" * 64,
-            revision_base="r0",
-            aprobada_en=registrado,
-            politica_revision="r0",
-            comprobante="review:1",
+            base_revision="r0",
+            approved_at=recorded,
+            policy_revision="r0",
+            proof="review:1",
         )
-        eventos.append(
-            evento("ratificacion", evento_id="E1", registrado_en=registrado, valido_desde=registrado, aprobacion=aprob)
+        events.append(
+            event("ratification", event_id="E1", recorded_at=recorded, valid_from=recorded, approval=appr)
         )
-        paso = evento(
-            evento_id="E2",
-            estado_anterior="propuesta",
-            estado_nuevo="aceptada",
-            registrado_en=registrado,
-            valido_desde=valido or registrado,
+        step = event(
+            event_id="E2",
+            previous_state="proposed",
+            new_state="accepted",
+            recorded_at=recorded,
+            valid_from=valid or recorded,
         )
-        if hasta:
-            paso["valido_hasta"] = hasta
-        eventos.append(paso)
-    r = registro("decision", id=ident, estado=estado, eventos=eventos, **extra)
-    return r, cuerpo_de(clausulas)
+        if until:
+            step["valid_until"] = until
+        events.append(step)
+    r = record("decision", id=ident, state=state, events=events, **extra)
+    return r, body_of(clauses)
 
 
 @pytest.fixture
-def nuevo():
-    return registro
+def new():
+    return record

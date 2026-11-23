@@ -1,0 +1,38 @@
+---
+type: Milestone
+id: PL-001-H3
+title: "Personal data in the notices"
+class: record
+status: draft
+state: Pending
+owner: Notices team
+depends_on: ["PL-001-H2"]
+closes: ["QD-054", "QD-056", "QD-057"]
+advances: ["QD-005"]
+tests: "—"
+produces: "—"
+evidence: "—"
+---
+
+# PL-001-H3 · Personal data in the notices
+
+## Goal
+
+The notices module stores no email addresses outside the reader's card.
+
+## Scope
+
+The sending log and its copies.
+
+## Verification
+
+A test that looks for email addresses in the sending log and finds none.
+
+## Tasks
+
+* Store only the reader's identifier.
+* Delete the email addresses from the existing logs.
+
+## Notes
+
+Record invented for the KBOL tests.

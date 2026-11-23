@@ -1,90 +1,90 @@
-"""Digest contractual: serialización exacta, campos cubiertos y vectores publicados."""
+"""Contractual digest: exact serialization, covered fields and published vectors."""
 
 import hashlib
 import json
 from pathlib import Path
 
 import pytest
-from conftest import CUERPO_DECISION, evento, registro
+from conftest import DECISION_BODY, event, record
 
-from kbol.digest import bytes_canonicos, digest, objeto_aprobable
+from kbol.digest import approvable_object, canonical_bytes, digest
 
-VECTORES = Path(__file__).resolve().parents[1] / "kbol" / "vectores" / "digest.json"
-EFECTO = [{"estado_anterior": "propuesta", "estado_nuevo": "aceptada", "valido_desde": "2026-11-15T00:00:00Z"}]
+VECTORS = Path(__file__).resolve().parents[1] / "kbol" / "vectors" / "digest.json"
+EFFECT = [{"previous_state": "proposed", "new_state": "accepted", "valid_from": "2026-11-15T00:00:00Z"}]
 
 
-def test_objeto_aprobable_separa_contenido_de_eventos_y_proyecciones():
-    r = registro(
+def test_approvable_object_separates_content_from_events_and_projections():
+    r = record(
         "decision", status="draft", verified=[{"by": "human:x", "at": "2026-11-01T00:00:00Z", "digest": "c" * 64}]
     )
-    r["eventos"] = [evento("creacion", estado_anterior=None, estado_nuevo="propuesta")]
-    obj = objeto_aprobable(r, CUERPO_DECISION, EFECTO)
+    r["events"] = [event("creation", previous_state=None, new_state="proposed")]
+    obj = approvable_object(r, DECISION_BODY, EFFECT)
     assert set(obj) == {
         "id",
         "type",
-        "clase",
+        "class",
         "title",
         "description",
-        "ambito",
-        "autor",
-        "cuerpo",
-        "campos",
-        "efectos_solicitados",
+        "scope",
+        "author",
+        "body",
+        "fields",
+        "requested_effects",
     }
-    for excluido in ("eventos", "status", "verified", "evaluaciones", "estado", "id", "title"):
-        assert excluido not in obj["campos"]
-    assert obj["campos"]["sources"] == [] and "alternativas" in obj["campos"]
+    for excluded in ("events", "status", "verified", "evaluations", "state", "id", "title"):
+        assert excluded not in obj["fields"]
+    assert obj["fields"]["sources"] == [] and "alternatives" in obj["fields"]
 
 
-def test_cambios_que_alteran_el_digest():
-    r = registro("decision")
-    d = digest(r, CUERPO_DECISION, EFECTO)
-    assert d != digest(r, CUERPO_DECISION.replace("martes", "miércoles"), EFECTO)
-    assert d != digest(r, CUERPO_DECISION, [{**EFECTO[0], "valido_desde": "2026-11-16T00:00:00Z"}])
-    assert d != digest({**r, "modifica": [{"destino": "DEC-A#C1", "tipo": "derogacion"}]}, CUERPO_DECISION, EFECTO)
-    assert d != digest({**r, "alternativas": list(reversed(r["alternativas"]))}, CUERPO_DECISION, EFECTO)
+def test_changes_that_alter_the_digest():
+    r = record("decision")
+    d = digest(r, DECISION_BODY, EFFECT)
+    assert d != digest(r, DECISION_BODY.replace("Tuesdays", "Wednesdays"), EFFECT)
+    assert d != digest(r, DECISION_BODY, [{**EFFECT[0], "valid_from": "2026-11-16T00:00:00Z"}])
+    assert d != digest({**r, "amends": [{"target": "DEC-A#C1", "operation": "repeals"}]}, DECISION_BODY, EFFECT)
+    assert d != digest({**r, "alternatives": list(reversed(r["alternatives"]))}, DECISION_BODY, EFFECT)
 
 
-def test_cambios_que_no_alteran_el_digest():
-    r = registro("decision")
-    d = digest(r, CUERPO_DECISION, EFECTO)
-    assert d == digest(r, CUERPO_DECISION.replace("\n", "\r\n"), EFECTO)
-    assert d == digest(dict(reversed(list(r.items()))), CUERPO_DECISION, EFECTO)
-    con_eventos = {
+def test_changes_that_do_not_alter_the_digest():
+    r = record("decision")
+    d = digest(r, DECISION_BODY, EFFECT)
+    assert d == digest(r, DECISION_BODY.replace("\n", "\r\n"), EFFECT)
+    assert d == digest(dict(reversed(list(r.items()))), DECISION_BODY, EFFECT)
+    with_events = {
         **r,
-        "eventos": [evento("creacion", estado_anterior=None, estado_nuevo="propuesta")],
+        "events": [event("creation", previous_state=None, new_state="proposed")],
         "status": "draft",
     }
-    assert d == digest(con_eventos, CUERPO_DECISION, EFECTO)
+    assert d == digest(with_events, DECISION_BODY, EFFECT)
 
 
-def test_unicode_sin_normalizar_y_escapes():
-    r = registro("decision")
-    compuesto = digest({**r, "title": "ñ"}, CUERPO_DECISION, [])
-    descompuesto = digest({**r, "title": "ñ"}, CUERPO_DECISION, [])
-    assert compuesto != descompuesto
-    b = bytes_canonicos({"a": 'comilla " barra \\ tab \t nul \x00', "b": "ñ"})
-    assert b == '{"a":"comilla \\" barra \\\\ tab \\t nul \\u0000","b":"ñ"}'.encode()
+def test_unnormalized_unicode_and_escapes():
+    r = record("decision")
+    composed = digest({**r, "title": "\u00f1"}, DECISION_BODY, [])
+    decomposed = digest({**r, "title": "n\u0303"}, DECISION_BODY, [])
+    assert composed != decomposed
+    b = canonical_bytes({"a": 'quote " backslash \\ tab \t nul \x00', "b": "\u00f1"})
+    assert b == '{"a":"quote \\" backslash \\\\ tab \\t nul \\u0000","b":"\u00f1"}'.encode()
     assert not b.startswith(b"\xef\xbb\xbf")
 
 
-@pytest.mark.parametrize("valor", [1.5, float("nan"), {"x": 2.0}, [object()]])
-def test_tipos_no_admitidos(valor):
+@pytest.mark.parametrize("value", [1.5, float("nan"), {"x": 2.0}, [object()]])
+def test_types_not_admitted(value):
     with pytest.raises(ValueError):
-        bytes_canonicos({"v": valor})
+        canonical_bytes({"v": value})
 
 
-def test_claves_ordenadas_por_codigo_unicode():
-    assert bytes_canonicos({"é": 1, "z": 2, "Z": 3, "a": 4}) == '{"Z":3,"a":4,"z":2,"é":1}'.encode()
+def test_keys_sorted_by_unicode_code_point():
+    assert canonical_bytes({"\u00e9": 1, "z": 2, "Z": 3, "a": 4}) == '{"Z":3,"a":4,"z":2,"\u00e9":1}'.encode()
 
 
-def test_vectores_publicados():
-    vectores = json.loads(VECTORES.read_text(encoding="utf-8"))
-    assert len(vectores) >= 4
-    for v in vectores:
-        obj = objeto_aprobable(v["registro"], v["cuerpo"], v["efectos_solicitados"])
-        b = bytes_canonicos(obj)
-        assert b.decode("utf-8") == v["bytes"], v["nombre"]
+def test_published_vectors():
+    vectors = json.loads(VECTORS.read_text(encoding="utf-8"))
+    assert len(vectors) >= 4
+    for v in vectors:
+        obj = approvable_object(v["record"], v["body"], v["requested_effects"])
+        b = canonical_bytes(obj)
+        assert b.decode("utf-8") == v["bytes"], v["name"]
         assert (
-            hashlib.sha256(b).hexdigest() == v["sha256"] == digest(v["registro"], v["cuerpo"], v["efectos_solicitados"])
+            hashlib.sha256(b).hexdigest() == v["sha256"] == digest(v["record"], v["body"], v["requested_effects"])
         )

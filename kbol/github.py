@@ -1,58 +1,58 @@
-"""Verificador de aprobaciones por revisiones de pull request de GitHub.
+"""Approval verifier based on GitHub pull request reviews.
 
-Quien pide la integración solo identifica revisiones (`{mecanismo, pull, review_id}`); no aporta identidades, roles,
-digests ni efectos. El verificador, con el repositorio fijado por configuración, comprueba en la API de GitHub que la
-PR compara exactamente la base esperada con el commit propuesto y que la revisión está aprobada sobre ese commit, y
-devuelve la cuenta que la hizo y su instante. Lo que la persona aprobó es ese diff, incluido el archivo de efectos
-solicitados que viaja en él. No guarda tokens: el cliente lo toma de `KB_GITHUB_TOKEN`; sin él no está habilitado.
+Whoever asks for the integration only identifies reviews (`{mechanism, pull, review_id}`); it supplies no identities,
+roles, digests or effects. The verifier, with the repository fixed by configuration, checks in the GitHub API that the
+PR compares exactly the expected base with the proposed commit and that the review approves that commit, and returns
+the account that made it and its instant. What the person approved is that diff, including the requested effects file
+that travels in it. It stores no tokens: the client takes it from `KB_GITHUB_TOKEN`; without it, it is not enabled.
 """
 
 import json
 import os
 import re
 
-from .tiempo import es_instante, instante
-from .verificacion import ErrorDeVerificacion  # noqa: F401 (se reexporta)
+from .timeutil import instant, is_instant
+from .verification import VerificationError  # noqa: F401 (re-exported)
 
 API = "https://api.github.com"
 _REPO = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 
 
-def _abridor_sin_redirecciones():
-    """urllib reenvía Authorization al seguir una redirección: no se sigue ninguna. urllib.request se importa aquí y
-    no al cargar el módulo, que la CLI importa en cada orden aunque no hable con GitHub."""
+def _opener_without_redirects():
+    """urllib forwards Authorization when it follows a redirect: none is followed. urllib.request is imported here
+    and not when the module loads, since the CLI imports it on every command even when it does not talk to GitHub."""
     import urllib.request
 
-    class _SinRedirecciones(urllib.request.HTTPRedirectHandler):
+    class _NoRedirects(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, req, fp, code, msg, headers, newurl):
             return None
 
-    return urllib.request.build_opener(_SinRedirecciones)
+    return urllib.request.build_opener(_NoRedirects)
 
 
-class ClienteGitHub:
-    """Cliente HTTP mínimo de la API REST de GitHub, de solo lectura y sin seguir redirecciones."""
+class GitHubClient:
+    """Minimal read-only HTTP client for the GitHub REST API that follows no redirects."""
 
     def __init__(self, token):
         self._token = token
-        self._opener = _abridor_sin_redirecciones()
+        self._opener = _opener_without_redirects()
 
     def __repr__(self):
-        return "ClienteGitHub(token=***)"
+        return "GitHubClient(token=***)"
 
     @classmethod
-    def desde_entorno(cls):
+    def from_environment(cls):
         token = os.environ.get("KB_GITHUB_TOKEN")
         if not token:
-            raise ErrorDeVerificacion("verificador de GitHub no habilitado: falta KB_GITHUB_TOKEN")
+            raise VerificationError("GitHub verifier not enabled: KB_GITHUB_TOKEN is missing")
         return cls(token)
 
-    def get(self, ruta):
+    def get(self, path):
         import urllib.error
         import urllib.request
 
-        peticion = urllib.request.Request(
-            API + ruta,
+        req = urllib.request.Request(
+            API + path,
             headers={
                 "Accept": "application/vnd.github+json",
                 "Authorization": f"Bearer {self._token}",
@@ -61,116 +61,116 @@ class ClienteGitHub:
             },
         )
         try:
-            with self._opener.open(peticion, timeout=20) as respuesta:  # noqa: S310 - URL fija de la API
-                return json.load(respuesta)
+            with self._opener.open(req, timeout=20) as response:  # noqa: S310 - fixed API URL
+                return json.load(response)
         except urllib.error.HTTPError as exc:
-            codigo = "ACCESO_DENEGADO" if exc.code in (401, 403) else "AUTORIDAD_INSUFICIENTE"
-            raise ErrorDeVerificacion(f"GitHub respondió {exc.code} para {ruta}", codigo) from None
+            code = "ACCESS_DENIED" if exc.code in (401, 403) else "INSUFFICIENT_AUTHORITY"
+            raise VerificationError(f"GitHub answered {exc.code} for {path}", code) from None
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
-            raise ErrorDeVerificacion(
-                f"GitHub no respondió de forma válida: {type(exc).__name__}", "RESULTADO_DESCONOCIDO"
+            raise VerificationError(
+                f"GitHub did not answer validly: {type(exc).__name__}", "UNKNOWN_RESULT"
             ) from None
 
 
-def cuenta_autenticada(cliente):
-    """{id, login} de la cuenta dueña del token del cliente, según GitHub (`GET /user`); solo cuentas de persona."""
-    datos = cliente.get("/user")
-    if not isinstance(datos, dict):
-        raise ErrorDeVerificacion("respuesta inesperada de GitHub para /user")
-    ident, login, tipo = datos.get("id"), datos.get("login"), datos.get("type")
+def authenticated_account(client):
+    """{id, login} of the account that owns the client token, according to GitHub (`GET /user`); person accounts only."""
+    data = client.get("/user")
+    if not isinstance(data, dict):
+        raise VerificationError("unexpected GitHub response for /user")
+    ident, login, type_ = data.get("id"), data.get("login"), data.get("type")
     if not isinstance(ident, int) or isinstance(ident, bool) or not isinstance(login, str) or not login:
-        raise ErrorDeVerificacion("GitHub no identificó la cuenta del token")
-    if tipo != "User":
-        raise ErrorDeVerificacion(f"la cuenta del token es de tipo {tipo!r}, no de una persona")
+        raise VerificationError("GitHub did not identify the token account")
+    if type_ != "User":
+        raise VerificationError(f"the token account is of type {type_!r}, not a person")
     return {"id": ident, "login": login}
 
 
-class VerificadorGitHub:
-    """Comprueba una revisión aprobada de una PR del repositorio configurado, sobre la base y el commit exactos."""
+class GitHubVerifier:
+    """Checks an approved review of a PR of the configured repository, on the exact base and commit."""
 
-    mecanismo = "github-review"
+    mechanism = "github-review"
 
-    # Estados que fijan la postura de una cuenta; los comentarios no la cambian.
-    EFECTIVOS = ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
-    # Eventos que cambian lo que la PR compara después de aprobarla.
-    CAMBIOS_DE_BASE = ("base_ref_changed", "base_ref_force_pushed")
+    # States that set an account's stance; comments do not change it.
+    EFFECTIVE = ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
+    # Events that change what the PR compares after it was approved.
+    BASE_CHANGES = ("base_ref_changed", "base_ref_force_pushed")
 
-    def __init__(self, cliente, repositorio, rama):
-        if not isinstance(repositorio, str) or not _REPO.fullmatch(repositorio):
-            raise ErrorDeVerificacion(f"repositorio de GitHub inválido: {repositorio!r}")
-        if not isinstance(rama, str) or not rama:
-            raise ErrorDeVerificacion("falta la rama canónica de la configuración")
-        self.cliente = cliente
-        self.repositorio = repositorio
-        self.rama = rama
+    def __init__(self, client, repository, branch):
+        if not isinstance(repository, str) or not _REPO.fullmatch(repository):
+            raise VerificationError(f"invalid GitHub repository: {repository!r}")
+        if not isinstance(branch, str) or not branch:
+            raise VerificationError("the configuration lacks the canonical branch")
+        self.client = client
+        self.repository = repository
+        self.branch = branch
 
-    def _paginas(self, ruta):
-        elementos, pagina = [], 1
+    def _pages(self, path):
+        elements, page = [], 1
         while True:
-            lote = self.cliente.get(f"{ruta}?per_page=100&page={pagina}")
-            if not isinstance(lote, list):
-                raise ErrorDeVerificacion(f"respuesta inesperada de GitHub para {ruta}")
-            elementos += lote
-            if len(lote) < 100:
-                return elementos
-            pagina += 1
+            batch = self.client.get(f"{path}?per_page=100&page={page}")
+            if not isinstance(batch, list):
+                raise VerificationError(f"unexpected GitHub response for {path}")
+            elements += batch
+            if len(batch) < 100:
+                return elements
+            page += 1
 
-    def verificar(self, revision, propuesta_rev, base_rev):
-        """{identidad, instante, comprobante}; ErrorDeVerificacion si no acredita la aprobación de ese diff.
+    def verify(self, revision, proposal_rev, base_rev):
+        """{identity, instant, proof}; VerificationError if it does not prove the approval of that diff.
 
-        Vale la postura vigente de la cuenta: su última revisión efectiva en la PR debe ser una aprobación del
-        commit propuesto. Una aprobación que la misma persona retiró después no cuenta.
+        The account's current stance counts: its last effective review in the PR must approve the proposed commit.
+        An approval the same person withdrew later does not count.
         """
-        if not isinstance(revision, dict) or revision.get("mecanismo") != self.mecanismo:
-            raise ErrorDeVerificacion("la referencia no es una revisión de GitHub")
+        if not isinstance(revision, dict) or revision.get("mechanism") != self.mechanism:
+            raise VerificationError("the reference is not a GitHub review")
         pull, review_id = revision.get("pull"), revision.get("review_id")
         if (
             not (isinstance(pull, int) and isinstance(review_id, int))
             or isinstance(pull, bool)
             or isinstance(review_id, bool)
         ):
-            raise ErrorDeVerificacion("pull y review_id son enteros")
-        pr = self.cliente.get(f"/repos/{self.repositorio}/pulls/{pull}")
-        if (pr.get("head") or {}).get("sha") != propuesta_rev:
-            raise ErrorDeVerificacion(
-                "la PR ya no apunta al commit propuesto: se aprobó otro contenido", "APROBACION_CADUCADA"
+            raise VerificationError("pull and review_id are integers")
+        pr = self.client.get(f"/repos/{self.repository}/pulls/{pull}")
+        if (pr.get("head") or {}).get("sha") != proposal_rev:
+            raise VerificationError(
+                "the PR no longer points to the proposed commit: other content was approved", "STALE_APPROVAL"
             )
-        if (pr.get("base") or {}).get("ref") != self.rama:
-            raise ErrorDeVerificacion("la PR no apunta a la rama canónica")
+        if (pr.get("base") or {}).get("ref") != self.branch:
+            raise VerificationError("the PR does not target the canonical branch")
         if (pr.get("base") or {}).get("sha") != base_rev:
-            raise ErrorDeVerificacion("la PR no compara con la base esperada: lo revisado es otro diff")
-        revisiones = self._paginas(f"/repos/{self.repositorio}/pulls/{pull}/reviews")
-        rev = next((r for r in revisiones if r.get("id") == review_id), None)
+            raise VerificationError("the PR does not compare with the expected base: the reviewed diff is another one")
+        revisions = self._pages(f"/repos/{self.repository}/pulls/{pull}/reviews")
+        rev = next((r for r in revisions if r.get("id") == review_id), None)
         if rev is None:
-            raise ErrorDeVerificacion("la revisión no existe en la PR")
+            raise VerificationError("the review does not exist in the PR")
         if rev.get("state") != "APPROVED":
-            raise ErrorDeVerificacion(f"la revisión está en {rev.get('state')!r}, no aprobada")
-        if rev.get("commit_id") != propuesta_rev:
-            raise ErrorDeVerificacion(
-                "la revisión aprueba otro commit: el contenido cambió después", "APROBACION_CADUCADA"
+            raise VerificationError(f"the review is {rev.get('state')!r}, not approved")
+        if rev.get("commit_id") != proposal_rev:
+            raise VerificationError(
+                "the review approves another commit: the content changed afterwards", "STALE_APPROVAL"
             )
-        usuario = (rev.get("user") or {}).get("id")
-        cuando = rev.get("submitted_at")
-        if not isinstance(usuario, int) or isinstance(usuario, bool) or not es_instante(cuando):
-            raise ErrorDeVerificacion("la revisión no identifica la cuenta o el instante")
-        posturas = [
-            r for r in revisiones if (r.get("user") or {}).get("id") == usuario and r.get("state") in self.EFECTIVOS
+        user_id = (rev.get("user") or {}).get("id")
+        when = rev.get("submitted_at")
+        if not isinstance(user_id, int) or isinstance(user_id, bool) or not is_instant(when):
+            raise VerificationError("the review does not identify the account or the instant")
+        stances = [
+            r for r in revisions if (r.get("user") or {}).get("id") == user_id and r.get("state") in self.EFFECTIVE
         ]
-        ultima = posturas[-1] if posturas else None
-        if ultima is None or ultima.get("state") != "APPROVED" or ultima.get("commit_id") != propuesta_rev:
-            raise ErrorDeVerificacion(
-                "la misma persona cambió o retiró su revisión después: su postura vigente no aprueba"
+        last = stances[-1] if stances else None
+        if last is None or last.get("state") != "APPROVED" or last.get("commit_id") != proposal_rev:
+            raise VerificationError(
+                "the same person changed or withdrew the review afterwards: their current stance does not approve"
             )
-        cronologia = self._paginas(f"/repos/{self.repositorio}/issues/{pull}/timeline")
-        for ev in cronologia:
-            if ev.get("event") in self.CAMBIOS_DE_BASE and (
-                not es_instante(ev.get("created_at")) or instante(ev["created_at"]) >= instante(cuando)
+        timeline = self._pages(f"/repos/{self.repository}/issues/{pull}/timeline")
+        for ev in timeline:
+            if ev.get("event") in self.BASE_CHANGES and (
+                not is_instant(ev.get("created_at")) or instant(ev["created_at"]) >= instant(when)
             ):
-                raise ErrorDeVerificacion("la base de la PR cambió después de la aprobación: lo aprobado era otro diff")
-        comprobante = {
-            "mecanismo": self.mecanismo,
-            "repositorio": self.repositorio,
+                raise VerificationError("the PR base changed after the approval: what was approved was another diff")
+        proof = {
+            "mechanism": self.mechanism,
+            "repository": self.repository,
             "pull": pull,
             "review_id": review_id,
         }
-        return {"identidad": f"github:{usuario}", "instante": cuando, "comprobante": comprobante}
+        return {"identity": f"github:{user_id}", "instant": when, "proof": proof}

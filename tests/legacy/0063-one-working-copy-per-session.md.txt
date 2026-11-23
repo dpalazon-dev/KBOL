@@ -1,0 +1,49 @@
+---
+type: Decision
+id: ADR-0063
+title: "One working copy per session, and the checker warns if a new ID already exists in main"
+class: record
+status: stable
+state: Accepted
+implementation: complete
+date: "2026-10-30"
+scope: system
+branch: System
+adopted_by: "Owner, 30 Oct 2026"
+answers_to: "QD-184"
+supersedes_to: "—"
+affects: "docs/method.md; tools/check_records.py and its tests"
+---
+
+# One working copy per session, and the checker warns if a new ID already exists in main
+
+* Status: accepted
+* Date: 2026-10-30
+* Deciders: Owner (scope `system`)
+
+Record invented for the KBOL tests: the Faro project does not exist.
+
+## Context and Problem Statement
+
+Two people editing the same working copy gave the same ID to two different questions, and one overwrote the other.
+
+## Considered Options
+
+* One working copy per session and a checker warning when a new ID already exists in `main`.
+* Only the rule of one working copy per session.
+
+## Decision Outcome
+
+Chosen option: "one copy per session and a checker warning", because the rule alone does not detect the clash when branches move forward separately.
+
+### Positive Consequences
+
+* Several people can work at the same time without losing records.
+
+### Negative Consequences
+
+* The warning only sees `main`.
+
+## Validation
+
+Tests of the checker with a temporary repository.

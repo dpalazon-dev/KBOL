@@ -1,0 +1,20 @@
+---
+type: Question
+id: QD-045
+title: "Which server hosts the Faro catalog? The old one no longer responds"
+class: record
+status: deprecated
+kind: Fact
+purpose: "Point the backups to the right server"
+obtained_by: Owner
+answered_by: Owner
+scope: system
+branch: System
+depends_on: "—"
+state: "Resolved (fact: the catalog was migrated to the new server, 2026-10-26)"
+origin: Backup review, 2026-10-26
+resolved_by: Fact
+evidence: ["the old server does not respond (26 Oct 2026)", "the new server serves the catalog (26 Oct 2026)"]
+---
+
+# QD-045 · Which server hosts the Faro catalog? The old one no longer responds

@@ -1,0 +1,21 @@
+---
+type: Question
+id: QD-112
+title: "Two loan tests fail because they expect the old format of the return date"
+class: record
+status: deprecated
+kind: Conflict
+conflicts_with: The date format after ADR-0009
+effect: "The loans suite is not green and does not work as a quality gate"
+answered_by: Loans team
+scope: product
+branch: Quality
+depends_on: QD-029
+state: Discarded (duplicate of QD-133, which reproduces the same two failures)
+origin: "Test review, 2026-10-13"
+resolved_by: Discarded
+confidence: medium
+evidence: ["tests/test_loans.py:40", "tests/test_loans.py:52"]
+---
+
+# QD-112 · Two loan tests fail because they expect the old format of the return date

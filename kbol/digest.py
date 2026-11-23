@@ -1,72 +1,72 @@
-"""Digest contractual del contenido aprobable («Digest y aprobación», núcleo 0.7).
+"""Contractual digest of the approvable content ("Digest and approval", core 1.0).
 
-Objeto: id, type, clase, title, description, ambito, autor, cuerpo, campos y efectos_solicitados. `campos` contiene
-todos los campos de contenido y relaciones excepto los excluidos por regla explícita: eventos, proyecciones
-(`estado` materializado, `status`, `stale_after`), `verified` y evaluaciones. Serialización: claves ordenadas por
-código Unicode, arrays en su orden, sin espacios, UTF-8 sin BOM, sin normalización Unicode, saltos del cuerpo en LF y
-solo enteros exactos. Digest = SHA-256 de esos bytes.
+Object: id, type, class, title, description, scope, author, body, fields and requested_effects. `fields` contains
+all content fields and relations except those excluded by an explicit rule: events, projections (materialized
+`state`, `status`, `stale_after`), `verified` and evaluations. Serialization: keys sorted by Unicode code point,
+arrays in their order, no spaces, UTF-8 without BOM, no Unicode normalization, body line breaks as LF and only exact
+integers. Digest = SHA-256 of those bytes.
 """
 
 import hashlib
 import json
 
-from .core import normalizar_cuerpo
-from .tiempo import es_instante
+from .core import normalize_body
+from .timeutil import is_instant
 
-SUPERIORES = ("id", "type", "clase", "title", "description", "ambito", "autor")
-EXCLUIDOS = frozenset(SUPERIORES) | {"eventos", "estado", "status", "stale_after", "verified", "evaluaciones"}
+SUPERIORS = ("id", "type", "class", "title", "description", "scope", "author")
+EXCLUDED = frozenset(SUPERIORS) | {"events", "state", "status", "stale_after", "verified", "evaluations"}
 
 
-def _comprobar(valor, ruta="$"):
-    if isinstance(valor, bool) or valor is None or isinstance(valor, (int, str)):
+def _check(value, path="$"):
+    if isinstance(value, bool) or value is None or isinstance(value, (int, str)):
         return
-    if isinstance(valor, float):
-        raise ValueError(f"{ruta}: los decimales se serializan como texto")
-    if isinstance(valor, dict):
-        for k, v in valor.items():
+    if isinstance(value, float):
+        raise ValueError(f"{path}: decimals are serialized as text")
+    if isinstance(value, dict):
+        for k, v in value.items():
             if not isinstance(k, str):
-                raise ValueError(f"{ruta}: clave no textual {k!r}")
-            _comprobar(v, f"{ruta}.{k}")
+                raise ValueError(f"{path}: non-text key {k!r}")
+            _check(v, f"{path}.{k}")
         return
-    if isinstance(valor, list):
-        for i, v in enumerate(valor):
-            _comprobar(v, f"{ruta}[{i}]")
+    if isinstance(value, list):
+        for i, v in enumerate(value):
+            _check(v, f"{path}[{i}]")
         return
-    raise ValueError(f"{ruta}: tipo no serializable {type(valor).__name__}")
+    raise ValueError(f"{path}: non-serializable type {type(value).__name__}")
 
 
-def bytes_canonicos(objeto):
-    _comprobar(objeto)
-    texto = json.dumps(objeto, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
-    return texto.encode("utf-8")
+def canonical_bytes(object_):
+    _check(object_)
+    text = json.dumps(object_, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return text.encode("utf-8")
 
 
-CAMPOS_EFECTO = {"estado_anterior", "estado_nuevo", "valido_desde", "valido_hasta"}
+EFFECT_FIELDS = {"previous_state", "new_state", "valid_from", "valid_until"}
 
 
-def comprobar_efectos(efectos):
-    """Transiciones solicitadas con sus fechas de validez; sin los instantes de incorporación, aún desconocidos."""
-    if not isinstance(efectos, list):
-        raise ValueError("efectos_solicitados es una lista de transiciones")
-    for i, ef in enumerate(efectos):
-        if not isinstance(ef, dict) or not {"estado_nuevo", "valido_desde"} <= ef.keys() or set(ef) - CAMPOS_EFECTO:
-            raise ValueError(f"efecto {i}: lleva estado_nuevo y valido_desde, y solo {sorted(CAMPOS_EFECTO)}")
-        for campo in ("valido_desde", "valido_hasta"):
-            if campo in ef and not es_instante(ef[campo]):
-                raise ValueError(f"efecto {i}: {campo} no es un instante con zona")
+def check_effects(effects):
+    """Requested transitions with their validity dates; without the incorporation instants, still unknown."""
+    if not isinstance(effects, list):
+        raise ValueError("requested_effects is a list of transitions")
+    for i, ef in enumerate(effects):
+        if not isinstance(ef, dict) or not {"new_state", "valid_from"} <= ef.keys() or set(ef) - EFFECT_FIELDS:
+            raise ValueError(f"effect {i}: carries new_state and valid_from, and only {sorted(EFFECT_FIELDS)}")
+        for field in ("valid_from", "valid_until"):
+            if field in ef and not is_instant(ef[field]):
+                raise ValueError(f"effect {i}: {field} is not an instant with a zone")
 
 
-def objeto_aprobable(registro, cuerpo, efectos_solicitados, importacion=None):
-    comprobar_efectos(efectos_solicitados)
-    obj = {k: registro.get(k) for k in SUPERIORES}
-    obj["cuerpo"] = normalizar_cuerpo(cuerpo)
-    obj["campos"] = {k: v for k, v in registro.items() if k not in EXCLUIDOS}
-    obj["efectos_solicitados"] = efectos_solicitados
-    if importacion is not None:  # solo en una importación: los vectores publicados no la llevan
-        obj["importacion"] = importacion
+def approvable_object(record, body, requested_effects, import_=None):
+    check_effects(requested_effects)
+    obj = {k: record.get(k) for k in SUPERIORS}
+    obj["body"] = normalize_body(body)
+    obj["fields"] = {k: v for k, v in record.items() if k not in EXCLUDED}
+    obj["requested_effects"] = requested_effects
+    if import_ is not None:  # only in an import: the published vectors do not carry it
+        obj["import"] = import_
     return obj
 
 
-def digest(registro, cuerpo, efectos_solicitados, importacion=None):
-    objeto = objeto_aprobable(registro, cuerpo, efectos_solicitados, importacion)
-    return hashlib.sha256(bytes_canonicos(objeto)).hexdigest()
+def digest(record, body, requested_effects, import_=None):
+    object_ = approvable_object(record, body, requested_effects, import_)
+    return hashlib.sha256(canonical_bytes(object_)).hexdigest()

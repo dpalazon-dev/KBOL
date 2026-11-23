@@ -1,0 +1,24 @@
+---
+type: Question
+id: QD-054
+title: The notices module stores the readers' email addresses unencrypted in its sending log
+class: record
+status: draft
+kind: Conflict
+conflicts_with: "Faro's data policy asks not to store email addresses outside the reader's card"
+effect: "A copy of the sending log exposes the email addresses of all readers"
+answered_by: Owner
+scope: product
+branch: Notices
+depends_on: QD-016
+state: Under review
+origin: Personal data review, 2026-10-26
+resolved_by: "—"
+severity: MEDIUM
+confidence: high
+minimal_fix: "Store only the reader's identifier in the sending log."
+tags: ["personal-data"]
+evidence: ["src/notices/log.py:10-20", "docs/data-policy.md:5"]
+---
+
+# QD-054 · The notices module stores the readers' email addresses unencrypted in its sending log

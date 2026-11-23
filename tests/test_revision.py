@@ -1,213 +1,209 @@
-"""Regresiones de la revisión independiente del 3 nov 2026 (hallazgos HIGH, MEDIUM y LOW)."""
+"""Regressions from the independent review of 3 Nov 2026 (HIGH, MEDIUM and LOW findings)."""
 
 import re
 
 import pytest
-from conftest import CUERPO_DECISION, POR_TIPO, evento, registro
+from conftest import BY_TYPE, DECISION_BODY, event, record
 
-from kbol.core import ErrorDeFormato, escribir, nuevo_id, parse, serializar
+from kbol.core import FormatError, new_id, parse, serialize, write
 from kbol.digest import digest
-from kbol.eventos import rige_en
-from kbol.markdown import hechos
-from kbol.modelo import ID_UUID
-from kbol.proyeccion import Snapshot, proyectar, proyectar_status
-from kbol.referencias import validar_snapshot
-from kbol.schema import validar
+from kbol.events import in_force_at
+from kbol.markdown import facts
+from kbol.model import ID_UUID
+from kbol.projection import Snapshot, project, project_status
+from kbol.references import validate_snapshot
+from kbol.schema import validate
 
-T = dict(valido_en="2026-11-20T00:00:00Z", conocido_hasta="2026-11-20T00:00:00Z")
-
-
-def creacion(estado, t="2026-11-01T00:00:00Z"):
-    return evento(
-        "creacion", evento_id="E0", estado_anterior=None, estado_nuevo=estado, registrado_en=t, valido_desde=t
-    )
+T = dict(valid_at="2026-11-20T00:00:00Z", known_until="2026-11-20T00:00:00Z")
 
 
-def ratificacion(t="2026-11-02T00:00:00Z"):
-    aprob = dict(
-        aprobacion_id="AP1",
+def creation(state, t="2026-11-01T00:00:00Z"):
+    return event("creation", event_id="E0", previous_state=None, new_state=state, recorded_at=t, valid_from=t)
+
+
+def ratification(t="2026-11-02T00:00:00Z"):
+    appr = dict(
+        approval_id="AP1",
         actor="human:david",
-        identidad_ref="github:1",
-        roles=["ROL-EJEMPLO"],
+        identity_ref="github:1",
+        roles=["ROLE-EXAMPLE"],
         digest="b" * 64,
-        revision_base="r0",
-        aprobada_en=t,
-        politica_revision="r0",
-        comprobante="review:1",
+        base_revision="r0",
+        approved_at=t,
+        policy_revision="r0",
+        proof="review:1",
     )
-    return evento("ratificacion", evento_id="E1", registrado_en=t, valido_desde=t, aprobacion=aprob)
+    return event("ratification", event_id="E1", recorded_at=t, valid_from=t, approval=appr)
 
 
-def aceptacion(t="2026-11-02T00:00:00Z", valido=None, **extra):
-    return evento(
-        evento_id="E2",
-        estado_anterior="propuesta",
-        estado_nuevo="aceptada",
-        registrado_en=t,
-        valido_desde=valido or t,
+def acceptance(t="2026-11-02T00:00:00Z", valid=None, **extra):
+    return event(
+        event_id="E2",
+        previous_state="proposed",
+        new_state="accepted",
+        recorded_at=t,
+        valid_from=valid or t,
         **extra,
     )
 
 
-def aceptada(**cambios):
-    return registro(
-        "decision", estado="aceptada", eventos=[creacion("propuesta"), ratificacion(), aceptacion()], **cambios
-    )
+def accepted(**changes):
+    return record("decision", state="accepted", events=[creation("proposed"), ratification(), acceptance()], **changes)
 
 
 @pytest.mark.parametrize(
-    "campo,valor",
-    [("description", "una línea\n"), ("id", "Q-A\n"), ("autor", "human:x\n"), ("responsable", "ROL-EJEMPLO\n")],
+    "field,value",
+    [("description", "one line\n"), ("id", "Q-A\n"), ("author", "human:x\n"), ("owner", "ROLE-EXAMPLE\n")],
 )
-def test_patrones_no_admiten_salto_final(campo, valor):
-    assert validar(registro("pregunta", **{campo: valor}))
+def test_patterns_do_not_admit_a_final_newline(field, value):
+    assert validate(record("question", **{field: value}))
 
 
-def test_instantes_y_huellas_no_admiten_salto_final():
-    ev = creacion("abierta")
-    assert validar(registro("pregunta", eventos=[{**ev, "registrado_en": ev["registrado_en"] + "\n"}]))
-    assert validar(registro("fuente", sha256="a" * 64 + "\n"))
+def test_instants_and_fingerprints_do_not_admit_a_final_newline():
+    ev = creation("open")
+    assert validate(record("question", events=[{**ev, "recorded_at": ev["recorded_at"] + "\n"}]))
+    assert validate(record("source", sha256="a" * 64 + "\n"))
 
 
-def test_canonico_exige_historial_desde_creacion():
-    assert validar(registro("decision", estado="aceptada"), CUERPO_DECISION, modo="canonico")
-    assert validar(registro("decision", eventos=[ratificacion()]), CUERPO_DECISION, modo="canonico")
-    assert validar(aceptada(), CUERPO_DECISION, modo="canonico") == []
+def test_canonical_requires_history_from_creation():
+    assert validate(record("decision", state="accepted"), DECISION_BODY, mode="canonical")
+    assert validate(record("decision", events=[ratification()]), DECISION_BODY, mode="canonical")
+    assert validate(accepted(), DECISION_BODY, mode="canonical") == []
 
 
-def test_aceptar_una_decision_exige_ratificacion_previa():
-    sin = registro("decision", estado="aceptada", eventos=[creacion("propuesta"), aceptacion()])
-    assert validar(sin, CUERPO_DECISION, modo="canonico")
+def test_accepting_a_decision_requires_a_previous_ratification():
+    without = record("decision", state="accepted", events=[creation("proposed"), acceptance()])
+    assert validate(without, DECISION_BODY, mode="canonical")
 
 
-def test_propuesta_nueva_esta_en_estado_inicial():
-    assert validar(registro("decision", estado="aceptada"), CUERPO_DECISION)
+def test_new_proposal_is_in_the_initial_state():
+    assert validate(record("decision", state="accepted"), DECISION_BODY)
 
 
-def test_canonico_no_admite_eventos_locales():
-    local = {**creacion("abierta"), "registrado_en": None}
-    assert validar(registro("pregunta", eventos=[local]), modo="canonico")
-    assert validar(registro("pregunta", eventos=[local])) == []
+def test_canonical_does_not_admit_local_events():
+    local = {**creation("open"), "recorded_at": None}
+    assert validate(record("question", events=[local]), mode="canonical")
+    assert validate(record("question", events=[local])) == []
 
 
-def test_serializar_canonico_exige_historial():
-    with pytest.raises(ErrorDeFormato):
-        serializar(registro("decision", estado="aceptada"), CUERPO_DECISION, modo="canonico")
-    assert serializar(aceptada(), CUERPO_DECISION, modo="canonico")
+def test_serialize_canonical_requires_history():
+    with pytest.raises(FormatError):
+        serialize(record("decision", state="accepted"), DECISION_BODY, mode="canonical")
+    assert serialize(accepted(), DECISION_BODY, mode="canonical")
 
 
-def test_sin_historial_no_hay_proyeccion_ni_sucesion():
-    a = aceptada(id="DEC-A")
-    b_sin = registro("decision", id="DEC-B", estado="aceptada", deja_obsoleta=["DEC-A"])
-    snap = Snapshot({"DEC-A": a, "DEC-B": b_sin}, revision="r1")
-    assert proyectar_status(a, snap, **T) == "stable"
-    assert proyectar_status(b_sin, snap, **T) is None
-    assert proyectar(b_sin, snap, **T)["advertencias"]
+def test_without_history_there_is_no_projection_nor_succession():
+    a = accepted(id="DEC-A")
+    b_without = record("decision", id="DEC-B", state="accepted", supersedes=["DEC-A"])
+    snap = Snapshot({"DEC-A": a, "DEC-B": b_without}, revision="r1")
+    assert project_status(a, snap, **T) == "stable"
+    assert project_status(b_without, snap, **T) is None
+    assert project(b_without, snap, **T)["warnings"]
 
 
-def test_eventos_locales_se_ignoran_al_proyectar():
-    local = {**creacion("abierta"), "registrado_en": None}
-    r = registro("pregunta", eventos=[local])
-    assert proyectar_status(r, Snapshot({}, "r"), **T) is None
+def test_local_events_are_ignored_when_projecting():
+    local = {**creation("open"), "recorded_at": None}
+    r = record("question", events=[local])
+    assert project_status(r, Snapshot({}, "r"), **T) is None
 
 
-def test_ambiguedad_de_dia_no_rompe_la_proyeccion():
-    imp = evento(
-        "importacion",
-        evento_id="E0",
-        estado_anterior=None,
-        estado_nuevo="aceptada",
-        estado_heredado="Aceptada",
-        procedencia={"ruta": "docs/x.md", "revision": "r"},
-        valido_desde="2026-11-20",
-        precision="dia",
+def test_day_ambiguity_does_not_break_the_projection():
+    imp = event(
+        "import",
+        event_id="E0",
+        previous_state=None,
+        new_state="accepted",
+        legacy_state="Accepted",
+        provenance={"path": "docs/x.md", "revision": "r"},
+        valid_from="2026-11-20",
+        precision="day",
     )
-    r = registro("decision", estado="aceptada", eventos=[imp])
-    p = proyectar(r, Snapshot({}, "r"), **T)
-    assert p["status"] == "draft" and any("TIEMPO_AMBIGUO" in a for a in p["advertencias"])
+    r = record("decision", state="accepted", events=[imp])
+    p = project(r, Snapshot({}, "r"), **T)
+    assert p["status"] == "draft" and any("AMBIGUOUS_TIME" in a for a in p["warnings"])
 
 
-def test_ambiguedad_de_dia_depende_de_la_zona_desconocida():
-    with pytest.raises(ValueError, match="ambigua"):
-        rige_en("2026-11-15", None, "2026-11-15T00:30:00+01:00")
-    with pytest.raises(ValueError, match="ambigua"):
-        rige_en("2026-11-15", None, "2026-11-14T23:30:00-05:00")
-    assert rige_en("2026-11-15", None, "2026-11-17T00:00:00Z") is True
-    assert rige_en("2026-11-15", None, "2026-11-13T00:00:00Z") is False
+def test_day_ambiguity_depends_on_the_unknown_zone():
+    with pytest.raises(ValueError, match="ambiguous"):
+        in_force_at("2026-11-15", None, "2026-11-15T00:30:00+01:00")
+    with pytest.raises(ValueError, match="ambiguous"):
+        in_force_at("2026-11-15", None, "2026-11-14T23:30:00-05:00")
+    assert in_force_at("2026-11-15", None, "2026-11-17T00:00:00Z") is True
+    assert in_force_at("2026-11-15", None, "2026-11-13T00:00:00Z") is False
 
 
-def test_decimales_enteros_rechazados_en_cualquier_campo():
-    v = POR_TIPO["hito"]["verificaciones"][0]
-    assert validar(registro("hito", verificaciones=[{**v, "timeout": 600.0}]))
-    assert validar(registro("rol", regla_aprobacion={"quorum": 2.0}))
+def test_integral_decimals_rejected_in_any_field():
+    v = BY_TYPE["milestone"]["checks"][0]
+    assert validate(record("milestone", checks=[{**v, "timeout": 600.0}]))
+    assert validate(record("role", approval_rule={"quorum": 2.0}))
 
 
-def test_codigo_en_linea_no_cruza_parrafos():
-    cuerpo = 'Pulsa ` para abrir.\n\n<hecho id="H1" evidencia="inventada" fuente="nada">5</hecho>\n\nY ` otra vez.'
-    assert hechos(cuerpo)
-    assert validar(registro("pregunta"), cuerpo)
+def test_inline_code_does_not_cross_paragraphs():
+    body = 'Press ` to open.\n\n<fact id="H1" evidence="invented" source="nothing">5</fact>\n\nAnd ` again.'
+    assert facts(body)
+    assert validate(record("question"), body)
 
 
-def test_digest_valida_efectos():
-    r = registro("decision")
+def test_digest_validates_effects():
+    r = record("decision")
     with pytest.raises(ValueError):
-        digest(r, CUERPO_DECISION, {"cualquier": "cosa"})
-    efecto = {"estado_nuevo": "aceptada", "valido_desde": "2026-11-01T00:00:00Z", "registrado_en": "x"}
+        digest(r, DECISION_BODY, {"any": "thing"})
+    effect = {"new_state": "accepted", "valid_from": "2026-11-01T00:00:00Z", "recorded_at": "x"}
     with pytest.raises(ValueError):
-        digest(r, CUERPO_DECISION, [efecto])
+        digest(r, DECISION_BODY, [effect])
 
 
-def test_etiqueta_no_especifica_rechazada():
-    with pytest.raises(ErrorDeFormato):
+def test_non_specific_tag_rejected():
+    with pytest.raises(FormatError):
         parse("---\na: ! 123\n---\n")
 
 
-def test_yaml_1_1_desde_texto():
-    meta, _ = parse("---\nalias: [no, yes]\n---\n")
-    assert validar(registro("entidad", alias=meta["alias"]))
+def test_yaml_1_1_from_text():
+    meta, _ = parse("---\naliases: [no, yes]\n---\n")
+    assert validate(record("entity", aliases=meta["aliases"]))
 
 
-def test_intervalos_ordenados():
-    hecho = registro("hecho")
-    del hecho["fecha"]
-    hecho["intervalo"] = {"desde": "2026-11-02", "hasta": "2026-11-01"}
-    assert validar(hecho)
-    mal = aceptacion(valido="2026-12-01T00:00:00Z", valido_hasta="2026-11-01T00:00:00Z")
-    r = registro("decision", estado="aceptada", eventos=[creacion("propuesta"), ratificacion(), mal])
-    assert validar(r, CUERPO_DECISION)
+def test_ordered_intervals():
+    fact = record("fact")
+    del fact["date"]
+    fact["interval"] = {"from": "2026-11-02", "until": "2026-11-01"}
+    assert validate(fact)
+    bad = acceptance(valid="2026-12-01T00:00:00Z", valid_until="2026-11-01T00:00:00Z")
+    r = record("decision", state="accepted", events=[creation("proposed"), ratification(), bad])
+    assert validate(r, DECISION_BODY)
 
 
-def test_referencias_adicionales_y_cobertura_de_anclas():
-    rol = registro("rol")
-    sin = registro("sintesis", dependencias=["DEC-NADA#C1"])
-    snap = Snapshot({"ROL-EJEMPLO": rol, "SIN-A": sin}, "r")
-    assert "REFERENCIA_AUSENTE" in {h["codigo"] for h in validar_snapshot(snap)}
-    fuente = registro("pregunta", sources=[{"id": "s1", "resource": "F-NADA"}])
-    assert validar_snapshot(Snapshot({"ROL-EJEMPLO": rol, "Q-A": fuente}, "r"))
-    dec = registro("decision")
-    q = registro("pregunta", cuestiona=["DEC-EJEMPLO#C99"])
-    h = validar_snapshot(Snapshot({"ROL-EJEMPLO": rol, "DEC-EJEMPLO": dec, "Q-A": q}, "r"))
-    assert [x["severidad"] for x in h] == ["aviso"]  # cuerpo no cargado: no se pudo comprobar
-    assert validar(registro("pregunta"), '<hecho ref="ZZ-1">x</hecho>')
+def test_additional_references_and_anchor_coverage():
+    role = record("role")
+    syn = record("synthesis", dependencies=["DEC-NONE#C1"])
+    snap = Snapshot({"ROLE-EXAMPLE": role, "SYN-A": syn}, "r")
+    assert "MISSING_REFERENCE" in {h["code"] for h in validate_snapshot(snap)}
+    source = record("question", sources=[{"id": "s1", "resource": "SRC-NONE"}])
+    assert validate_snapshot(Snapshot({"ROLE-EXAMPLE": role, "Q-A": source}, "r"))
+    dec = record("decision")
+    q = record("question", challenges=["DEC-EXAMPLE#C99"])
+    h = validate_snapshot(Snapshot({"ROLE-EXAMPLE": role, "DEC-EXAMPLE": dec, "Q-A": q}, "r"))
+    assert [x["severity"] for x in h] == ["alert"]  # body not loaded: it could not be checked
+    assert validate(record("question"), '<fact ref="ZZ-1">x</fact>')
 
 
-def test_sustitucion_mutua_es_ciclo():
-    rol = registro("rol")
-    a = registro("decision", id="DEC-A", modifica=[{"destino": "DEC-B#C1", "tipo": "sustitucion", "por": "DEC-A#C1"}])
-    b = registro("decision", id="DEC-B", modifica=[{"destino": "DEC-A#C1", "tipo": "sustitucion", "por": "DEC-B#C1"}])
-    cuerpos = {"DEC-A": CUERPO_DECISION, "DEC-B": CUERPO_DECISION}
-    snap = Snapshot({"ROL-EJEMPLO": rol, "DEC-A": a, "DEC-B": b}, "r", cuerpos)
-    assert "CONFLICTO_NORMATIVO" in {h["codigo"] for h in validar_snapshot(snap)}
+def test_mutual_replacement_is_a_cycle():
+    role = record("role")
+    a = record("decision", id="DEC-A", amends=[{"target": "DEC-B#C1", "operation": "replaces", "by": "DEC-A#C1"}])
+    b = record("decision", id="DEC-B", amends=[{"target": "DEC-A#C1", "operation": "replaces", "by": "DEC-B#C1"}])
+    bodies = {"DEC-A": DECISION_BODY, "DEC-B": DECISION_BODY}
+    snap = Snapshot({"ROLE-EXAMPLE": role, "DEC-A": a, "DEC-B": b}, "r", bodies)
+    assert "NORMATIVE_CONFLICT" in {h["code"] for h in validate_snapshot(snap)}
 
 
-def test_nuevo_id_y_escritura_atomica(tmp_path):
-    ident = nuevo_id("decision")
+def test_new_id_and_atomic_write(tmp_path):
+    ident = new_id("decision")
     assert re.fullmatch(ID_UUID, ident)
     f = tmp_path / "d.md"
-    escribir(f, registro("decision", id=ident), CUERPO_DECISION.replace("DEC-EJEMPLO", ident))
-    meta, cuerpo = parse(f.read_text(encoding="utf-8"))
-    assert meta["id"] == ident and cuerpo == CUERPO_DECISION
+    write(f, record("decision", id=ident), DECISION_BODY.replace("DEC-EXAMPLE", ident))
+    meta, body = parse(f.read_text(encoding="utf-8"))
+    assert meta["id"] == ident and body == DECISION_BODY
     assert list(tmp_path.iterdir()) == [f]
-    with pytest.raises(ErrorDeFormato):
-        escribir(tmp_path / "e.md", registro("decision", extra=1), CUERPO_DECISION)
+    with pytest.raises(FormatError):
+        write(tmp_path / "e.md", record("decision", extra=1), DECISION_BODY)
     assert list(tmp_path.iterdir()) == [f]

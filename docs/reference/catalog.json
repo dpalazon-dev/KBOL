@@ -1,0 +1,88 @@
+[
+  {
+    "name": "KB-DPP core",
+    "version": "1.0",
+    "what_it_is": "Contract for a documentary system and knowledge base: knowledge model, ingestion, types, states, events, relations and errors",
+    "origin": "Contract by David Palazón, published with KBOL under the same license; English edition of core 0.7; fingerprint in docs/reference/manifest.json",
+    "consumed_by": [
+      "docs/reference/KB-DPP-core.md",
+      "docs/reference/manifest.json",
+      "docs/design-choices.md",
+      "README.md"
+    ]
+  },
+  {
+    "name": "KB-DPP implementation",
+    "version": "1.0",
+    "what_it_is": "Implementation guide for the contract: record contract, identity, format, digest, vectors and validation scenarios",
+    "origin": "Contract by David Palazón, published with KBOL under the same license; English edition of implementation 0.8; fingerprint in docs/reference/manifest.json",
+    "consumed_by": [
+      "docs/reference/KB-DPP-implementation.md",
+      "docs/reference/manifest.json",
+      "docs/design-choices.md",
+      "README.md"
+    ]
+  },
+  {
+    "name": "OKF conventions",
+    "version": "0.2",
+    "what_it_is": "Header conventions (id, type, title, description, sources, generated, verified, stale_after) that the KBOL profile adopts as inspiration, without declaring full external compatibility",
+    "origin": "not recorded",
+    "consumed_by": [
+      "docs/design-choices.md"
+    ]
+  },
+  {
+    "name": "lines-v1",
+    "version": "1",
+    "what_it_is": "Locator profile by lines of a text",
+    "origin": "Defined by KBOL",
+    "consumed_by": [
+      "kbol/locator.py",
+      "kbol/citations.py"
+    ]
+  },
+  {
+    "name": "pdf-v1",
+    "version": "1",
+    "what_it_is": "Locator profile by physical page and normalized region of a PDF",
+    "origin": "Defined by KBOL",
+    "consumed_by": [
+      "kbol/locator.py",
+      "kbol/citations.py",
+      "tools/di/di/locate.py"
+    ]
+  },
+  {
+    "name": "norm-v1",
+    "version": "1",
+    "what_it_is": "Locator profile by logical unit of a legal norm",
+    "origin": "Defined by KBOL",
+    "consumed_by": [
+      "kbol/locator.py",
+      "kbol/citations.py",
+      "tools/di/di/editor.py",
+      "tools/di/di/fidelity.py"
+    ]
+  },
+  {
+    "name": "structure-v1",
+    "version": "1",
+    "what_it_is": "Profile of the structured representation of a legal norm against which `kbol citations` resolves citations",
+    "origin": "Defined by KBOL; produced by tools/di",
+    "consumed_by": [
+      "kbol/citations.py",
+      "tools/di/di/structure.py"
+    ]
+  },
+  {
+    "name": "Docling",
+    "version": "2.142.1",
+    "what_it_is": "Document processor pinned to an exact version in the tools of the Document Intelligence pilot",
+    "origin": "PyPI package, pinned in tools/di/pyproject.toml",
+    "consumed_by": [
+      "tools/di/pyproject.toml",
+      "tools/di/di/process.py"
+    ]
+  }
+]

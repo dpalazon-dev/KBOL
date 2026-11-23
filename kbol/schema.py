@@ -1,641 +1,641 @@
-"""VAL-01: forma de un registro aislado (cabecera, campos por tipo, relaciones, eventos y marcas del cuerpo).
+"""VAL-01: shape of an isolated record (header, fields per type, relations, events and body markup).
 
-Validar la forma no establece autoridad, vigencia ni admisión de eventos: esas comprobaciones necesitan la política,
-la base y el mecanismo de integración. Las referencias entre registros se comprueban en `referencias.py`.
+Validating the shape does not establish authority, validity nor admission of events: those checks need the policy,
+the base and the integration mechanism. References between records are checked in `references.py`.
 
-Modos:
-- `propuesta` (por defecto): campos desconocidos son error; la decisión necesita cláusulas.
-- `canonico`: además, el estado escrito debe coincidir con el historial admitido.
-- `intercambio`: campos desconocidos se conservan y solo avisan.
+Modes:
+- `proposal` (default): unknown fields are errors; a decision needs clauses.
+- `canonical`: also, the written state must match the admitted history.
+- `exchange`: unknown fields are kept and only raise an alert.
 """
 
 from functools import cache
 
-from . import modelo as m
-from .eventos import ErrorDeHistorial, estado_en
-from .markdown import ErrorDeMarca, clausulas, hechos
-from .tiempo import comparable, es_fecha, es_instante, es_instante_o_fecha
+from . import model as m
+from .events import HistoryError, state_at
+from .markdown import MarkupError, clauses, facts
+from .timeutil import comparable, is_date, is_instant, is_instant_or_date
 
 
 @cache
-def _formatos():
-    """Comprobador de formatos. jsonschema se importa al validar, no al cargar el módulo: su importación cuesta más
-    que muchas órdenes enteras que no validan nada."""
+def _formats():
+    """Format checker. jsonschema is imported when validating, not when loading the module: importing it costs more
+    than many whole commands that validate nothing."""
     from jsonschema import FormatChecker
 
-    formatos = FormatChecker(formats=())
-    formatos.checks("instante")(es_instante)
-    formatos.checks("fecha")(es_fecha)
-    formatos.checks("instante-o-fecha")(es_instante_o_fecha)
-    return formatos
+    checker = FormatChecker(formats=())
+    checker.checks("instant")(is_instant)
+    checker.checks("date")(is_date)
+    checker.checks("instant-or-date")(is_instant_or_date)
+    return checker
 
 
-TEXTO = {"type": "string", "minLength": 1}
-LINEA = {"type": "string", "minLength": 1, "pattern": r"^[^\r\n]*(?!\n)$"}
-TEXTOS = {"type": "array", "items": TEXTO}
+TEXT = {"type": "string", "minLength": 1}
+LINE = {"type": "string", "minLength": 1, "pattern": r"^[^\r\n]*(?!\n)$"}
+TEXTS = {"type": "array", "items": TEXT}
 ID = {"type": "string", "pattern": m.RE_ID.pattern}
-ID_ANCLA = {"type": "string", "pattern": m.RE_ID_ANCLA.pattern}
+ANCHOR_ID = {"type": "string", "pattern": m.RE_ANCHOR_ID.pattern}
 IDS = {"type": "array", "items": ID}
-IDS_ANCLA = {"type": "array", "items": ID_ANCLA}
+ANCHOR_IDS = {"type": "array", "items": ANCHOR_ID}
 ACTOR = {"type": "string", "pattern": r"^(human:\S+|process:\S+|[^\s/:]+/[^\s/]+)(?!\n)$"}
 SHA256 = {"type": "string", "pattern": r"^[0-9a-f]{64}(?!\n)$"}
-INSTANTE = {"type": "string", "format": "instante"}
-INSTANTE_O_FECHA = {"type": "string", "format": "instante-o-fecha"}
-ENTERO = {"type": "integer"}
+INSTANT = {"type": "string", "format": "instant"}
+INSTANT_OR_DATE = {"type": "string", "format": "instant-or-date"}
+INTEGER = {"type": "integer"}
 
 
-def objeto(requeridos, opcionales=None, **extra):
-    props = {**requeridos, **(opcionales or {})}
-    return {"type": "object", "required": list(requeridos), "properties": props, "additionalProperties": False, **extra}
+def object_(required, optional=None, **extra):
+    props = {**required, **(optional or {})}
+    return {"type": "object", "required": list(required), "properties": props, "additionalProperties": False, **extra}
 
 
-EVIDENCIA_EVENTO = objeto({"mecanismo": TEXTO, "comprobante": TEXTO})
-FUENTE_CITADA = objeto(
-    {"id": TEXTO, "resource": ID},
-    {"ancla": TEXTO, "representacion_id": ID, "hash": SHA256, "contexto": TEXTO},
+EVENT_EVIDENCE = object_({"mechanism": TEXT, "proof": TEXT})
+CITED_SOURCE = object_(
+    {"id": TEXT, "resource": ID},
+    {"anchor": TEXT, "representation_id": ID, "hash": SHA256, "context": TEXT},
 )
-EVALUACION = objeto(
+EVALUATION = object_(
     {
-        "evaluacion_id": TEXTO,
-        "sujeto_id": ID,
-        "digest_o_huella": SHA256,
-        "dimensiones": {**TEXTOS, "minItems": 1},
-        "metodo": TEXTO,
+        "evaluation_id": TEXT,
+        "subject_id": ID,
+        "digest_or_fingerprint": SHA256,
+        "dimensions": {**TEXTS, "minItems": 1},
+        "method": TEXT,
         "actor": ACTOR,
-        "realizada_en": INSTANTE,
-        "resultado": {"enum": list(m.RESULTADO_EVALUACION)},
-        "evidencia_ref": TEXTO,
-        "limitaciones": TEXTO,
+        "performed_at": INSTANT,
+        "result": {"enum": list(m.EVALUATION_RESULT)},
+        "evidence_ref": TEXT,
+        "limitations": TEXT,
     }
 )
-APROBACION = objeto(
+APPROVAL = object_(
     {
-        "aprobacion_id": TEXTO,
+        "approval_id": TEXT,
         "actor": ACTOR,
-        "identidad_ref": TEXTO,
+        "identity_ref": TEXT,
         "roles": {**IDS, "minItems": 1},
         "digest": SHA256,
-        "revision_base": TEXTO,
-        "aprobada_en": INSTANTE,
-        "politica_revision": TEXTO,
-        "comprobante": {"anyOf": [TEXTO, {"type": "object", "minProperties": 1}]},
+        "base_revision": TEXT,
+        "approved_at": INSTANT,
+        "policy_revision": TEXT,
+        "proof": {"anyOf": [TEXT, {"type": "object", "minProperties": 1}]},
     }
 )
-LIMITE = {"anyOf": [TEXTO, {"type": "object", "minProperties": 1}]}
+LIMIT = {"anyOf": [TEXT, {"type": "object", "minProperties": 1}]}
 
-COMUNES_EVENTO = {
-    "evento_id": TEXTO,
-    "tipo_evento": {"enum": list(m.EVENTOS)},
+EVENT_COMMON = {
+    "event_id": TEXT,
+    "event_type": {"enum": list(m.EVENTS)},
     "actor": ACTOR,
-    "registrado_en": {"anyOf": [INSTANTE, {"type": "null"}]},
-    "valido_desde": INSTANTE,
-    "motivo": TEXTO,
-    "evidencia_evento": EVIDENCIA_EVENTO,
+    "recorded_at": {"anyOf": [INSTANT, {"type": "null"}]},
+    "valid_from": INSTANT,
+    "reason": TEXT,
+    "event_evidence": EVENT_EVIDENCE,
 }
-OPCIONALES_EVENTO = {"valido_hasta": INSTANTE}
-EVENTO_POR_CLASE = {
-    "creacion": ({"estado_anterior": {"type": "null"}, "estado_nuevo": TEXTO}, {}),
-    "transicion": ({"estado_anterior": TEXTO, "estado_nuevo": TEXTO}, {}),
-    "importacion": (
+EVENT_OPTIONAL = {"valid_until": INSTANT}
+EVENT_BY_CLASS = {
+    "creation": ({"previous_state": {"type": "null"}, "new_state": TEXT}, {}),
+    "transition": ({"previous_state": TEXT, "new_state": TEXT}, {}),
+    "import": (
         {
-            "estado_anterior": {"type": "null"},
-            "estado_nuevo": TEXTO,
-            "estado_heredado": TEXTO,
-            "procedencia": objeto({"ruta": TEXTO, "revision": TEXTO}),
-            "valido_desde": {"anyOf": [INSTANTE_O_FECHA, {"type": "null"}]},
+            "previous_state": {"type": "null"},
+            "new_state": TEXT,
+            "legacy_state": TEXT,
+            "provenance": object_({"path": TEXT, "revision": TEXT}),
+            "valid_from": {"anyOf": [INSTANT_OR_DATE, {"type": "null"}]},
         },
         {
-            "precision": {"enum": list(m.PRECISIONES) + ["desconocida"]},
-            "autoridad_heredada": {
+            "precision": {"enum": list(m.PRECISIONS) + ["unknown"]},
+            "inherited_authority": {
                 "anyOf": [
                     {"type": "null"},
-                    objeto({"texto": TEXTO, "clasificacion": {"enum": ["comprobada", "pendiente", "insuficiente"]}}),
+                    object_({"text": TEXT, "classification": {"enum": ["checked", "pending", "insufficient"]}}),
                 ]
             },
         },
     ),
-    "ratificacion": ({"aprobacion": APROBACION}, {}),
-    "revocacion_aprobacion": ({"aprobacion_id": TEXTO}, {}),
-    "evaluacion": ({"evaluacion": EVALUACION}, {}),
-    "cambio_ocupacion": ({"rol": ID, "desde": INSTANTE}, {"hasta": INSTANTE}),
-    "resolucion_impacto": (
-        {"afectado": ID_ANCLA, "causa": TEXTO, "resolucion": {"enum": ["actualizado", "no_afecta", "pendiente"]}},
-        {"responsable": ID, "plazo": INSTANTE_O_FECHA},
+    "ratification": ({"approval": APPROVAL}, {}),
+    "approval_revocation": ({"approval_id": TEXT}, {}),
+    "evaluation": ({"evaluation": EVALUATION}, {}),
+    "holding_change": ({"role": ID, "from": INSTANT}, {"until": INSTANT}),
+    "impact_resolution": (
+        {"affected": ANCHOR_ID, "cause": TEXT, "resolution": {"enum": ["updated", "does_not_affect", "pending"]}},
+        {"owner": ID, "deadline": INSTANT_OR_DATE},
     ),
 }
 
 
-def esquema_evento(clase):
-    requeridos, opcionales = EVENTO_POR_CLASE[clase]
-    return objeto({**COMUNES_EVENTO, **requeridos}, {**OPCIONALES_EVENTO, **opcionales})
+def event_schema(class_):
+    required, optional = EVENT_BY_CLASS[class_]
+    return object_({**EVENT_COMMON, **required}, {**EVENT_OPTIONAL, **optional})
 
 
-RELACION_OBJETO = {
-    "modifica": {
+OBJECT_RELATION = {
+    "amends": {
         "type": "array",
-        "items": objeto(
-            {"destino": ID_ANCLA, "tipo": {"enum": ["sustitucion", "derogacion", "adicion"]}},
-            {"por": ID_ANCLA, "posicion": TEXTO},
+        "items": object_(
+            {"target": ANCHOR_ID, "operation": {"enum": ["replaces", "repeals", "adds"]}},
+            {"by": ANCHOR_ID, "position": TEXT},
         ),
     },
-    "depende_de": {"type": "array", "items": objeto({"destino": ID_ANCLA, "condicion": {"enum": list(m.CONDICIONES)}})},
-    "ocupa": {"type": "array", "items": objeto({"rol": ID, "desde": INSTANTE}, {"hasta": INSTANTE})},
-    "veta": {"type": "array", "items": objeto({"patron": TEXTO, "ambito": TEXTO, "uso": TEXTO, "exclusiones": TEXTOS})},
-    "define": {
+    "depends_on": {"type": "array", "items": object_({"target": ANCHOR_ID, "condition": {"enum": list(m.CONDITIONS)}})},
+    "holds": {"type": "array", "items": object_({"role": ID, "from": INSTANT}, {"until": INSTANT})},
+    "vetoes": {"type": "array", "items": object_({"pattern": TEXT, "scope": TEXT, "use": TEXT, "exclusions": TEXTS})},
+    "defines": {
         "type": "array",
-        "items": objeto(
+        "items": object_(
             {
-                "clausula": {"type": "string", "pattern": m.RE_ANCLA.pattern},
-                "termino": LINEA,
-                "clase": {"enum": list(m.CLASES_DE_TERMINO)},
-                "descripcion": TEXTO,
+                "clause": {"type": "string", "pattern": m.RE_ANCHOR.pattern},
+                "term": LINE,
+                "class": {"enum": list(m.TERM_CLASSES)},
+                "description": TEXT,
             },
-            {"alias": {"type": "array", "items": LINEA}},
+            {"aliases": {"type": "array", "items": LINE}},
         ),
     },
 }
 
-COMUNES = {
+COMMON = {
     "id": ID,
-    "type": {"enum": list(m.TIPOS)},
-    "clase": {"enum": list(m.CLASES)},
-    "title": LINEA,
-    "description": LINEA,
-    "ambito": TEXTO,
-    "estado": TEXTO,
-    "autor": ACTOR,
-    "eventos": {"type": "array", "items": {"type": "object", "required": ["tipo_evento"]}},
-    "sources": {"type": "array", "items": FUENTE_CITADA},
+    "type": {"enum": list(m.TYPES)},
+    "class": {"enum": list(m.CLASSES)},
+    "title": LINE,
+    "description": LINE,
+    "scope": TEXT,
+    "state": TEXT,
+    "author": ACTOR,
+    "events": {"type": "array", "items": {"type": "object", "required": ["event_type"]}},
+    "sources": {"type": "array", "items": CITED_SOURCE},
 }
-OPCIONALES_COMUNES = {
-    "generated": objeto({"by": TEXTO, "at": INSTANTE}),
-    "verified": {"type": "array", "items": objeto({"by": ACTOR, "at": INSTANTE, "digest": SHA256})},
-    "stale_after": INSTANTE,
+COMMON_OPTIONAL = {
+    "generated": object_({"by": TEXT, "at": INSTANT}),
+    "verified": {"type": "array", "items": object_({"by": ACTOR, "at": INSTANT, "digest": SHA256})},
+    "stale_after": INSTANT,
     "status": {"enum": ["draft", "stable", "deprecated"]},
 }
-CALIDAD = {
+QUALITY = {
     "type": "object",
     "minProperties": 1,
     "additionalProperties": {
         "anyOf": [
-            {"const": "no_evaluado"},
-            objeto({"metodo": TEXTO, "resultado": {"enum": list(m.RESULTADO_EVALUACION)}, "limites": TEXTO}),
+            {"const": "not_evaluated"},
+            object_({"method": TEXT, "result": {"enum": list(m.EVALUATION_RESULT)}, "limits": TEXT}),
         ]
     },
 }
-_FUENTE_COMUN = {
-    "subtipo": {"enum": ["original", "derivada"]},
-    "ubicacion": TEXTO,
-    "formato": TEXTO,
+_COMMON_SOURCE = {
+    "subtype": {"enum": ["original", "derived"]},
+    "location": TEXT,
+    "format": TEXT,
     "sha256": SHA256,
-    "acceso": TEXTO,
+    "access": TEXT,
 }
-ACEPTACION = objeto(
+ACCEPTANCE = object_(
     {
-        "criterio_id": TEXTO,
-        "descripcion": TEXTO,
-        "metodo": {"enum": list(m.METODOS_ACEPTACION)},
-        "obligatorio": {"type": "boolean"},
+        "criterion_id": TEXT,
+        "description": TEXT,
+        "method": {"enum": list(m.ACCEPTANCE_METHODS)},
+        "required": {"type": "boolean"},
     },
-    {"rubrica": TEXTO, "resolucion_desacuerdo": TEXTO},
+    {"rubric": TEXT, "disagreement_resolution": TEXT},
 )
-VERIFICACION = objeto(
+CHECK = object_(
     {
-        "verificacion_id": TEXTO,
-        "criterio_id": TEXTO,
-        "ejecutor": TEXTO,
-        "entrada": {"type": ["object", "array"]},
-        "entorno_ref": TEXTO,
-        "timeout": {**ENTERO, "minimum": 1},
-        "efectos_permitidos": TEXTOS,
+        "check_id": TEXT,
+        "criterion_id": TEXT,
+        "executor": TEXT,
+        "input": {"type": ["object", "array"]},
+        "environment_ref": TEXT,
+        "timeout": {**INTEGER, "minimum": 1},
+        "permitted_effects": TEXTS,
     }
 )
-ALTERNATIVA = objeto({"id": TEXTO, "descripcion": TEXTO, "seleccionada": {"type": "boolean"}, "motivo": TEXTO})
+ALTERNATIVE = object_({"id": TEXT, "description": TEXT, "selected": {"type": "boolean"}, "reason": TEXT})
 
-# Campos propios por tipo: (requeridos, opcionales). Las relaciones admitidas se añaden desde modelo.RELACIONES.
-POR_TIPO = {
-    "fuente": (_FUENTE_COMUN, {"evaluaciones": {"type": "array", "items": EVALUACION}}),
-    "hecho": (
+# Own fields per type: (required, optional). The admitted relations are added from model.RELATIONS.
+BY_TYPE = {
+    "source": (_COMMON_SOURCE, {"evaluations": {"type": "array", "items": EVALUATION}}),
+    "fact": (
         {
-            "afirmacion": TEXTO,
-            "clase_evidencia": {"enum": list(m.CLASES_EVIDENCIA)},
-            "precision": {"enum": list(m.PRECISIONES)},
+            "claim": TEXT,
+            "evidence_class": {"enum": list(m.EVIDENCE_CLASSES)},
+            "precision": {"enum": list(m.PRECISIONS)},
         },
-        {"fecha": INSTANTE_O_FECHA, "intervalo": objeto({"desde": INSTANTE_O_FECHA}, {"hasta": INSTANTE_O_FECHA})},
+        {"date": INSTANT_OR_DATE, "interval": object_({"from": INSTANT_OR_DATE}, {"until": INSTANT_OR_DATE})},
     ),
     "decision": (
-        {"alternativas": {"type": "array", "items": ALTERNATIVA}, "criterios": TEXTOS, "justificacion": TEXTO},
-        {"sin_alternativas_motivo": TEXTO, "implementacion": {"enum": list(m.IMPLEMENTACION)}},
+        {"alternatives": {"type": "array", "items": ALTERNATIVE}, "criteria": TEXTS, "rationale": TEXT},
+        {"no_alternatives_reason": TEXT, "implementation": {"enum": list(m.IMPLEMENTATION)}},
     ),
-    "persona": ({"naturaleza": {"enum": ["humana", "agente"]}, "identidad_ref": TEXTO}, {}),
-    "rol": (
+    "person": ({"nature": {"enum": ["human", "agent"]}, "identity_ref": TEXT}, {}),
+    "role": (
         {
-            "ambitos": {**TEXTOS, "minItems": 1},
-            "capacidades": {**TEXTOS, "minItems": 1},
-            "regla_aprobacion": {"anyOf": [{"enum": ["uno", "todos"]}, objeto({"quorum": {**ENTERO, "minimum": 1}})]},
+            "scopes": {**TEXTS, "minItems": 1},
+            "capabilities": {**TEXTS, "minItems": 1},
+            "approval_rule": {"anyOf": [{"enum": ["one", "all"]}, object_({"quorum": {**INTEGER, "minimum": 1}})]},
         },
         {},
     ),
-    "pregunta": (
+    "question": (
         {
-            "subtipo": {"enum": ["incognita", "incidencia", "discrepancia"]},
-            "responsable": ID,
-            "condicion_cierre": TEXTO,
+            "subtype": {"enum": ["unknown", "incident", "discrepancy"]},
+            "owner": ID,
+            "closing_condition": TEXT,
         },
-        {"plazo": INSTANTE_O_FECHA, "evidencia": TEXTOS},
+        {"deadline": INSTANT_OR_DATE, "evidence": TEXTS},
     ),
-    "hipotesis": (
-        {"afirmacion": TEXTO, "plan_prueba": TEXTO, "criterio_refutacion": TEXTO, "consecuencia_si_falla": TEXTO},
+    "hypothesis": (
+        {"claim": TEXT, "test_plan": TEXT, "refutation_criterion": TEXT, "consequence_if_fails": TEXT},
         {},
     ),
-    "supuesto": ({"afirmacion": TEXTO, "revisar_en": INSTANTE_O_FECHA, "consecuencia_si_falla": TEXTO}, {}),
-    "entidad": ({"nombre": TEXTO, "alias": TEXTOS, "clase_entidad": TEXTO}, {}),
-    "plan": ({"objetivo": TEXTO, "hitos": IDS, "restricciones": TEXTOS}, {}),
-    "hito": (
+    "assumption": ({"claim": TEXT, "review_at": INSTANT_OR_DATE, "consequence_if_fails": TEXT}, {}),
+    "entity": ({"name": TEXT, "aliases": TEXTS, "entity_class": TEXT}, {}),
+    "plan": ({"goal": TEXT, "milestones": IDS, "constraints": TEXTS}, {}),
+    "milestone": (
         {
-            "objetivo": TEXTO,
-            "alcance": TEXTO,
-            "aceptacion": {"type": "array", "items": ACEPTACION, "minItems": 1},
-            "tolerancias": objeto({}, {"tiempo": LIMITE, "coste": LIMITE, "recursos": LIMITE, "alcance": LIMITE}),
-            "verificaciones": {"type": "array", "items": VERIFICACION},
+            "goal": TEXT,
+            "work_scope": TEXT,
+            "acceptance": {"type": "array", "items": ACCEPTANCE, "minItems": 1},
+            "tolerances": object_({}, {"time": LIMIT, "cost": LIMIT, "resources": LIMIT, "work_scope": LIMIT}),
+            "checks": {"type": "array", "items": CHECK},
         },
-        {"responsable": ID, "evidencia": TEXTOS},
+        {"owner": ID, "evidence": TEXTS},
     ),
-    "sintesis": ({"dependencias": IDS_ANCLA, "evaluaciones": {"type": "array", "items": EVALUACION}}, {}),
+    "synthesis": ({"dependencies": ANCHOR_IDS, "evaluations": {"type": "array", "items": EVALUATION}}, {}),
 }
-DERIVADA = {
-    "derivada_de": {**IDS, "minItems": 1},
-    "procesador": TEXTO,
-    "version_procesador": TEXTO,
-    "configuracion_ref": TEXTO,
-    "procesado_en": INSTANTE,
-    "procesamiento": {"enum": list(m.PROCESAMIENTO)},
-    "calidad": CALIDAD,
+DERIVED = {
+    "derived_from": {**IDS, "minItems": 1},
+    "processor": TEXT,
+    "processor_version": TEXT,
+    "configuration_ref": TEXT,
+    "processed_at": INSTANT,
+    "processing": {"enum": list(m.PROCESSING)},
+    "quality": QUALITY,
 }
-# Relaciones obligatorias por tipo (tabla «Contratos concretos»).
-RELACIONES_REQUERIDAS = {
-    "hecho": ("basada_en",),
-    "decision": ("autorizado_por",),
-    "persona": ("ocupa",),
-    "plan": ("autorizado_por",),
-    "hito": ("autorizado_por",),
+# Required relations per type (table "Concrete contracts").
+REQUIRED_RELATIONS = {
+    "fact": ("based_on",),
+    "decision": ("authorized_by",),
+    "person": ("holds",),
+    "plan": ("authorized_by",),
+    "milestone": ("authorized_by",),
 }
-# Nombres del contrato que ningún término del dominio puede llevar: tipos, campos y relaciones.
-# Se comparan sin distinguir mayúsculas: `Entidad` también nombra un tipo.
-RESERVADOS = frozenset(
+# Contract names that no domain term may take: types, fields and relations.
+# They are compared case-insensitively: `Entity` also names a type.
+RESERVED = frozenset(
     n.casefold()
     for n in (
-        *m.TIPOS,
-        *COMUNES,
-        *OPCIONALES_COMUNES,
-        *(c for requeridos, opcionales in POR_TIPO.values() for c in (*requeridos, *opcionales)),
-        *DERIVADA,
-        "origen",
-        *m.REFERENCIAS,
+        *m.TYPES,
+        *COMMON,
+        *COMMON_OPTIONAL,
+        *(c for required, optional in BY_TYPE.values() for c in (*required, *optional)),
+        *DERIVED,
+        "origin",
+        *m.REFERENCES,
     )
 )
 
 
-def campos_de(tipo, subtipo=None):
-    """(esquema de propiedades, requeridos) para un tipo."""
-    requeridos, opcionales = POR_TIPO[tipo]
-    props = {**COMUNES, **OPCIONALES_COMUNES, **requeridos, **opcionales}
-    req = list(COMUNES) + list(requeridos)
-    for rel, regla in m.RELACIONES.items():
-        if tipo in regla["origen"]:
-            props[rel] = {**IDS_ANCLA, "minItems": 1} if rel == "autorizado_por" else IDS_ANCLA
-    for rel, origenes in m.RELACIONES_OBJETO.items():
-        if tipo in origenes:
-            props[rel] = RELACION_OBJETO[rel]
-    req += list(RELACIONES_REQUERIDAS.get(tipo, ()))
-    if tipo == "fuente":
-        if subtipo == "derivada":
-            props.update(DERIVADA)
-            req += list(DERIVADA)
-            props.pop("origen", None)
+def fields_of(type_, subtype=None):
+    """(properties schema, required) for a type."""
+    required, optional = BY_TYPE[type_]
+    props = {**COMMON, **COMMON_OPTIONAL, **required, **optional}
+    req = list(COMMON) + list(required)
+    for rel, rule in m.RELATIONS.items():
+        if type_ in rule["origin"]:
+            props[rel] = {**ANCHOR_IDS, "minItems": 1} if rel == "authorized_by" else ANCHOR_IDS
+    for rel, origins in m.OBJECT_RELATIONS.items():
+        if type_ in origins:
+            props[rel] = OBJECT_RELATION[rel]
+    req += list(REQUIRED_RELATIONS.get(type_, ()))
+    if type_ == "source":
+        if subtype == "derived":
+            props.update(DERIVED)
+            req += list(DERIVED)
+            props.pop("origin", None)
         else:
-            props["origen"] = TEXTO
-            props.pop("derivada_de", None)
-            req.append("origen")
+            props["origin"] = TEXT
+            props.pop("derived_from", None)
+            req.append("origin")
     return props, req
 
 
-def _hallazgo(codigo, ruta, mensaje, severidad="error"):
-    return {"codigo": codigo, "ruta": ruta, "mensaje": mensaje, "severidad": severidad}
+def _finding(code, path, message, severity="error"):
+    return {"code": code, "path": path, "message": message, "severity": severity}
 
 
-def _ruta(error):
+def _path(error):
     return "/" + "/".join(str(p) for p in error.absolute_path)
 
 
-def _jsonschema(esquema, instancia, prefijo=""):
+def _jsonschema(schema, instance, prefix=""):
     from jsonschema import Draft202012Validator
 
     return [
-        _hallazgo("ESQUEMA_INVALIDO", prefijo + _ruta(e), e.message)
-        for e in Draft202012Validator(esquema, format_checker=_formatos()).iter_errors(instancia)
+        _finding("INVALID_SCHEMA", prefix + _path(e), e.message)
+        for e in Draft202012Validator(schema, format_checker=_formats()).iter_errors(instance)
     ]
 
 
-def _repetidos(items, clave, ruta):
-    vistos, out = set(), []
+def _repeated(items, key, path):
+    seen, out = set(), []
     for i, it in enumerate(items):
-        if isinstance(it, dict) and clave in it:
-            if it[clave] in vistos:
-                out.append(_hallazgo("ESQUEMA_INVALIDO", f"{ruta}/{i}/{clave}", f"{clave} repetido: {it[clave]}"))
-            vistos.add(it[clave])
+        if isinstance(it, dict) and key in it:
+            if it[key] in seen:
+                out.append(_finding("INVALID_SCHEMA", f"{path}/{i}/{key}", f"repeated {key}: {it[key]}"))
+            seen.add(it[key])
     return out
 
 
-def validar(registro, cuerpo="", modo="propuesta"):
-    """Lista de hallazgos {codigo, ruta, mensaje, severidad}. Vacía si la forma es válida en el modo pedido."""
-    if modo not in ("propuesta", "canonico", "intercambio"):
-        raise ValueError(f"modo desconocido: {modo}")
-    if not isinstance(registro, dict):
-        return [_hallazgo("ESQUEMA_INVALIDO", "/", "la cabecera debe ser un mapa")]
-    tipo = registro.get("type")
-    if tipo not in m.TIPOS:
-        return _jsonschema({"type": "object", "required": list(COMUNES), "properties": COMUNES}, registro)
+def validate(record, body="", mode="proposal"):
+    """List of findings {code, path, message, severity}. Empty if the shape is valid in the requested mode."""
+    if mode not in ("proposal", "canonical", "exchange"):
+        raise ValueError(f"unknown mode: {mode}")
+    if not isinstance(record, dict):
+        return [_finding("INVALID_SCHEMA", "/", "the header must be a mapping")]
+    type_ = record.get("type")
+    if type_ not in m.TYPES:
+        return _jsonschema({"type": "object", "required": list(COMMON), "properties": COMMON}, record)
 
-    props, req = campos_de(tipo, registro.get("subtipo"))
-    esquema = {"type": "object", "required": req, "properties": props}
-    out = _jsonschema(esquema, registro)
-    for campo in registro:
-        if campo not in props:
-            sev = "aviso" if modo == "intercambio" else "error"
-            out.append(_hallazgo("ESQUEMA_INVALIDO", f"/{campo}", f"campo no declarado para {tipo}", sev))
+    props, req = fields_of(type_, record.get("subtype"))
+    schema = {"type": "object", "required": req, "properties": props}
+    out = _jsonschema(schema, record)
+    for field in record:
+        if field not in props:
+            sev = "alert" if mode == "exchange" else "error"
+            out.append(_finding("INVALID_SCHEMA", f"/{field}", f"field not declared for {type_}", sev))
 
-    out += _decimales(registro, "")
-    out += _identidad(registro, tipo)
-    if registro.get("estado") not in m.ESTADOS[tipo]:
-        out.append(_hallazgo("ESQUEMA_INVALIDO", "/estado", f"{registro.get('estado')!r} no es un estado de {tipo}"))
-    elif modo == "propuesta" and registro.get("eventos") == [] and registro["estado"] != m.INICIAL[tipo]:
+    out += _decimals(record, "")
+    out += _identity(record, type_)
+    if record.get("state") not in m.STATES[type_]:
+        out.append(_finding("INVALID_SCHEMA", "/state", f"{record.get('state')!r} is not a state of {type_}"))
+    elif mode == "proposal" and record.get("events") == [] and record["state"] != m.INITIAL[type_]:
         out.append(
-            _hallazgo(
-                "ESQUEMA_INVALIDO", "/estado", f"una propuesta nueva está en {m.INICIAL[tipo]!r}; el cambio se solicita"
+            _finding(
+                "INVALID_SCHEMA", "/state", f"a new proposal is in {m.INITIAL[type_]!r}; the change is requested"
             )
         )
-    out += _relaciones(registro, tipo)
-    out += _por_tipo(registro, tipo)
-    out += _eventos(registro, tipo, modo)
-    out += _cuerpo(registro, tipo, cuerpo, modo)
+    out += _relations(record, type_)
+    out += _by_type(record, type_)
+    out += _events(record, type_, mode)
+    out += _body(record, type_, body, mode)
     return out
 
 
-def _decimales(valor, ruta):
-    """Los valores numéricos son enteros exactos; los decimales van como texto (también 600.0)."""
-    if isinstance(valor, float):
-        return [_hallazgo("ESQUEMA_INVALIDO", ruta or "/", "los decimales se escriben como texto")]
-    if isinstance(valor, dict):
-        return [h for k, v in valor.items() for h in _decimales(v, f"{ruta}/{k}")]
-    if isinstance(valor, list):
-        return [h for i, v in enumerate(valor) for h in _decimales(v, f"{ruta}/{i}")]
+def _decimals(value, path):
+    """Numeric values are exact integers; decimals are written as text (600.0 too)."""
+    if isinstance(value, float):
+        return [_finding("INVALID_SCHEMA", path or "/", "decimals are written as text")]
+    if isinstance(value, dict):
+        return [h for k, v in value.items() for h in _decimals(v, f"{path}/{k}")]
+    if isinstance(value, list):
+        return [h for i, v in enumerate(value) for h in _decimals(v, f"{path}/{i}")]
     return []
 
 
-def _ordenado(desde, hasta, ruta):
+def _sorted(since, until, path):
     if not (
-        isinstance(desde, str) and isinstance(hasta, str) and es_instante_o_fecha(desde) and es_instante_o_fecha(hasta)
+        isinstance(since, str) and isinstance(until, str) and is_instant_or_date(since) and is_instant_or_date(until)
     ):
         return []
-    if comparable(hasta) <= comparable(desde):
-        return [_hallazgo("ESQUEMA_INVALIDO", ruta, f"el fin {hasta} no es posterior al inicio {desde}")]
+    if comparable(until) <= comparable(since):
+        return [_finding("INVALID_SCHEMA", path, f"the end {until} is not after the start {since}")]
     return []
 
 
-def _identidad(registro, tipo):
-    ident = registro.get("id")
+def _identity(record, type_):
+    ident = record.get("id")
     if not isinstance(ident, str):
         return []
-    impuesto = m.tipo_de_id(ident)
-    if impuesto is None:
-        return [_hallazgo("ESQUEMA_INVALIDO", "/id", f"el prefijo de {ident} no corresponde a ningún tipo")]
-    if impuesto != tipo:
-        return [_hallazgo("ESQUEMA_INVALIDO", "/id", f"{ident} es un ID de {impuesto}, no de {tipo}")]
+    imposed = m.type_of_id(ident)
+    if imposed is None:
+        return [_finding("INVALID_SCHEMA", "/id", f"the prefix of {ident} matches no type")]
+    if imposed != type_:
+        return [_finding("INVALID_SCHEMA", "/id", f"{ident} is an ID of {imposed}, not of {type_}")]
     return []
 
 
-def _relaciones(registro, tipo):
+def _relations(record, type_):
     out = []
-    for rel, regla in m.RELACIONES.items():
-        valores = registro.get(rel)
-        if not isinstance(valores, list):
+    for rel, rule in m.RELATIONS.items():
+        values = record.get(rel)
+        if not isinstance(values, list):
             continue
-        for i, dest in enumerate(valores):
+        for i, dest in enumerate(values):
             if not isinstance(dest, str):
                 continue
-            con_ancla = "#" in dest
-            if regla["ancla"] == "obligatoria" and not con_ancla:
-                out.append(_hallazgo("ESQUEMA_INVALIDO", f"/{rel}/{i}", f"{rel} apunta a una cláusula: ID#ancla"))
-            if regla["ancla"] == "prohibida" and con_ancla:
+            with_anchor = "#" in dest
+            if rule["anchor"] == "required" and not with_anchor:
+                out.append(_finding("INVALID_SCHEMA", f"/{rel}/{i}", f"{rel} points to a clause: ID#anchor"))
+            if rule["anchor"] == "forbidden" and with_anchor:
                 out.append(
-                    _hallazgo("ESQUEMA_INVALIDO", f"/{rel}/{i}", f"{rel} apunta a un registro, no a una cláusula")
+                    _finding("INVALID_SCHEMA", f"/{rel}/{i}", f"{rel} points to a record, not to a clause")
                 )
-            esperado = (tipo,) if regla["destino"] == "mismo" else regla["destino"]
-            real = m.tipo_de_id(dest)
-            if esperado and real is not None and real not in esperado:
-                out.append(_hallazgo("ESQUEMA_INVALIDO", f"/{rel}/{i}", f"{rel} no admite un destino de tipo {real}"))
-    for i, mod in enumerate(registro.get("modifica") or []):
+            expected = (type_,) if rule["target"] == "same" else rule["target"]
+            actual = m.type_of_id(dest)
+            if expected and actual is not None and actual not in expected:
+                out.append(_finding("INVALID_SCHEMA", f"/{rel}/{i}", f"{rel} does not admit a target of type {actual}"))
+    for i, mod in enumerate(record.get("amends") or []):
         if not isinstance(mod, dict):
             continue
-        tipo_mod, destino, por = mod.get("tipo"), str(mod.get("destino", "")), mod.get("por")
-        ruta = f"/modifica/{i}"
-        if tipo_mod in ("sustitucion", "adicion") and not por:
-            out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, f"{tipo_mod} exige por"))
-        if tipo_mod == "derogacion" and por is not None:
-            out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, "derogación no admite por"))
-        if tipo_mod in ("sustitucion", "derogacion") and "#" not in destino:
-            out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, f"{tipo_mod} exige destino ID#ancla"))
-        if tipo_mod == "adicion":
-            if "#" in destino:
-                out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, "adición apunta a una decisión, no a una cláusula"))
-            if not mod.get("posicion"):
-                out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, "adición exige posición lógica explícita"))
-        elif "posicion" in mod:
-            out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, "posicion solo se admite en una adición"))
-        if por and not str(por).startswith(f"{registro.get('id')}#"):
-            out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, "por identifica una cláusula del propio registro"))
-        if m.tipo_de_id(destino) not in (None, "decision"):
-            out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, "modifica apunta a una decisión"))
-    for i, dep in enumerate(registro.get("depende_de") or []):
-        if isinstance(dep, dict) and dep.get("destino") == registro.get("id"):
-            out.append(_hallazgo("CONFLICTO_NORMATIVO", f"/depende_de/{i}", "un registro no depende de sí mismo"))
+        operation, target, by = mod.get("operation"), str(mod.get("target", "")), mod.get("by")
+        path = f"/amends/{i}"
+        if operation in ("replaces", "adds") and not by:
+            out.append(_finding("INVALID_SCHEMA", path, f"{operation} requires by"))
+        if operation == "repeals" and by is not None:
+            out.append(_finding("INVALID_SCHEMA", path, "repeals does not admit by"))
+        if operation in ("replaces", "repeals") and "#" not in target:
+            out.append(_finding("INVALID_SCHEMA", path, f"{operation} requires an ID#anchor target"))
+        if operation == "adds":
+            if "#" in target:
+                out.append(_finding("INVALID_SCHEMA", path, "adds points to a decision, not to a clause"))
+            if not mod.get("position"):
+                out.append(_finding("INVALID_SCHEMA", path, "adds requires an explicit logical position"))
+        elif "position" in mod:
+            out.append(_finding("INVALID_SCHEMA", path, "position is only admitted in adds"))
+        if by and not str(by).startswith(f"{record.get('id')}#"):
+            out.append(_finding("INVALID_SCHEMA", path, "by identifies a clause of the record itself"))
+        if m.type_of_id(target) not in (None, "decision"):
+            out.append(_finding("INVALID_SCHEMA", path, "amends points to a decision"))
+    for i, dep in enumerate(record.get("depends_on") or []):
+        if isinstance(dep, dict) and dep.get("target") == record.get("id"):
+            out.append(_finding("NORMATIVE_CONFLICT", f"/depends_on/{i}", "a record does not depend on itself"))
     return out
 
 
-def _por_tipo(registro, tipo):
+def _by_type(record, type_):
     out = []
-    out += _repetidos(registro.get("sources") or [], "id", "/sources")
-    if tipo == "decision":
-        alts = registro.get("alternativas")
+    out += _repeated(record.get("sources") or [], "id", "/sources")
+    if type_ == "decision":
+        alts = record.get("alternatives")
         if isinstance(alts, list):
-            out += _repetidos(alts, "id", "/alternativas")
-            motivo = registro.get("sin_alternativas_motivo")
-            if not alts and not motivo:
+            out += _repeated(alts, "id", "/alternatives")
+            reason = record.get("no_alternatives_reason")
+            if not alts and not reason:
                 out.append(
-                    _hallazgo("ESQUEMA_INVALIDO", "/sin_alternativas_motivo", "sin alternativas hay que decir por qué")
+                    _finding("INVALID_SCHEMA", "/no_alternatives_reason", "without alternatives, say why")
                 )
-            if alts and motivo:
-                out.append(_hallazgo("ESQUEMA_INVALIDO", "/sin_alternativas_motivo", "solo cuando no hay alternativas"))
-            if alts and not any(isinstance(a, dict) and a.get("seleccionada") is True for a in alts):
-                out.append(_hallazgo("ESQUEMA_INVALIDO", "/alternativas", "ninguna alternativa está seleccionada"))
-        out += _nombres_definidos(registro.get("define") or [])
-    if tipo == "hecho":
-        tiene = [k for k in ("fecha", "intervalo") if k in registro]
-        if len(tiene) != 1:
-            out.append(_hallazgo("ESQUEMA_INVALIDO", "/fecha", "un hecho lleva fecha o intervalo, uno de los dos"))
-        intervalo = registro.get("intervalo")
-        if isinstance(intervalo, dict):
-            out += _ordenado(intervalo.get("desde"), intervalo.get("hasta"), "/intervalo")
-    for i, occ in enumerate(registro.get("ocupa") or []):
+            if alts and reason:
+                out.append(_finding("INVALID_SCHEMA", "/no_alternatives_reason", "only when there are no alternatives"))
+            if alts and not any(isinstance(a, dict) and a.get("selected") is True for a in alts):
+                out.append(_finding("INVALID_SCHEMA", "/alternatives", "no alternative is selected"))
+        out += _defined_names(record.get("defines") or [])
+    if type_ == "fact":
+        present = [k for k in ("date", "interval") if k in record]
+        if len(present) != 1:
+            out.append(_finding("INVALID_SCHEMA", "/date", "a fact carries a date or an interval, one of the two"))
+        interval = record.get("interval")
+        if isinstance(interval, dict):
+            out += _sorted(interval.get("from"), interval.get("until"), "/interval")
+    for i, occ in enumerate(record.get("holds") or []):
         if isinstance(occ, dict):
-            out += _ordenado(occ.get("desde"), occ.get("hasta"), f"/ocupa/{i}")
-    if tipo == "hito":
-        acept = registro.get("aceptacion") or []
-        verif = registro.get("verificaciones") or []
-        out += _repetidos(acept, "criterio_id", "/aceptacion")
-        out += _repetidos(verif, "verificacion_id", "/verificaciones")
-        criterios = {a.get("criterio_id") for a in acept if isinstance(a, dict)}
-        for i, v in enumerate(verif):
-            if isinstance(v, dict) and v.get("criterio_id") not in criterios:
-                out.append(_hallazgo("REFERENCIA_AUSENTE", f"/verificaciones/{i}/criterio_id", "criterio inexistente"))
-        for i, a in enumerate(acept):
-            asistida = isinstance(a, dict) and a.get("metodo") == "evaluacion_ia_asistida"
-            if asistida and not (a.get("rubrica") and a.get("resolucion_desacuerdo")):
+            out += _sorted(occ.get("from"), occ.get("until"), f"/holds/{i}")
+    if type_ == "milestone":
+        accept = record.get("acceptance") or []
+        checks = record.get("checks") or []
+        out += _repeated(accept, "criterion_id", "/acceptance")
+        out += _repeated(checks, "check_id", "/checks")
+        criteria = {a.get("criterion_id") for a in accept if isinstance(a, dict)}
+        for i, v in enumerate(checks):
+            if isinstance(v, dict) and v.get("criterion_id") not in criteria:
+                out.append(_finding("MISSING_REFERENCE", f"/checks/{i}/criterion_id", "nonexistent criterion"))
+        for i, a in enumerate(accept):
+            assisted = isinstance(a, dict) and a.get("method") == "ai_assisted_evaluation"
+            if assisted and not (a.get("rubric") and a.get("disagreement_resolution")):
                 out.append(
-                    _hallazgo(
-                        "ESQUEMA_INVALIDO",
-                        f"/aceptacion/{i}",
-                        "la evaluación asistida exige rúbrica y resolución humana del desacuerdo",
+                    _finding(
+                        "INVALID_SCHEMA",
+                        f"/acceptance/{i}",
+                        "an assisted evaluation requires a rubric and a human resolution of disagreement",
                     )
                 )
     return out
 
 
-def _nombres_definidos(entradas):
-    """Términos y alias de `define`: ninguno es un nombre del contrato y ninguno se repite en el registro."""
-    out, vistos = [], set()
-    for i, e in enumerate(entradas):
+def _defined_names(entries):
+    """Terms and aliases of `defines`: none is a contract name and none repeats in the record."""
+    out, seen = [], set()
+    for i, e in enumerate(entries):
         if not isinstance(e, dict):
             continue
-        alias = e.get("alias") if isinstance(e.get("alias"), list) else []
-        nombres = [("termino", e.get("termino"))] + [(f"alias/{j}", a) for j, a in enumerate(alias)]
-        for campo, nombre in nombres:
-            if not isinstance(nombre, str):
+        aliases = e.get("aliases") if isinstance(e.get("aliases"), list) else []
+        names = [("term", e.get("term"))] + [(f"aliases/{j}", a) for j, a in enumerate(aliases)]
+        for field, name in names:
+            if not isinstance(name, str):
                 continue
-            ruta = f"/define/{i}/{campo}"
-            if nombre != nombre.strip():
-                out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, f"{nombre!r} lleva espacios al principio o al final"))
-            if nombre.strip().casefold() in RESERVADOS:
-                out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, f"{nombre!r} es un tipo, un campo o una relación"))
-            if nombre in vistos:
-                out.append(_hallazgo("ESQUEMA_INVALIDO", ruta, f"{nombre!r} ya está definido en este registro"))
-            vistos.add(nombre)
+            path = f"/defines/{i}/{field}"
+            if name != name.strip():
+                out.append(_finding("INVALID_SCHEMA", path, f"{name!r} has leading or trailing spaces"))
+            if name.strip().casefold() in RESERVED:
+                out.append(_finding("INVALID_SCHEMA", path, f"{name!r} is a type, a field or a relation"))
+            if name in seen:
+                out.append(_finding("INVALID_SCHEMA", path, f"{name!r} is already defined in this record"))
+            seen.add(name)
     return out
 
 
-def _eventos(registro, tipo, modo):
-    eventos = registro.get("eventos")
-    if not isinstance(eventos, list):
+def _events(record, type_, mode):
+    events = record.get("events")
+    if not isinstance(events, list):
         return []
-    out = _repetidos(eventos, "evento_id", "/eventos")
-    for i, ev in enumerate(eventos):
-        clase = ev.get("tipo_evento") if isinstance(ev, dict) else None
-        if clase not in EVENTO_POR_CLASE:
-            out.append(_hallazgo("ESQUEMA_INVALIDO", f"/eventos/{i}", f"tipo_evento desconocido: {clase!r}"))
+    out = _repeated(events, "event_id", "/events")
+    for i, ev in enumerate(events):
+        class_ = ev.get("event_type") if isinstance(ev, dict) else None
+        if class_ not in EVENT_BY_CLASS:
+            out.append(_finding("INVALID_SCHEMA", f"/events/{i}", f"unknown event_type: {class_!r}"))
             continue
-        out += _jsonschema(esquema_evento(clase), ev, f"/eventos/{i}")
-        for campo in ("estado_anterior", "estado_nuevo"):
-            valor = ev.get(campo)
-            if valor is not None and valor not in m.ESTADOS[tipo]:
+        out += _jsonschema(event_schema(class_), ev, f"/events/{i}")
+        for field in ("previous_state", "new_state"):
+            value = ev.get(field)
+            if value is not None and value not in m.STATES[type_]:
                 out.append(
-                    _hallazgo("ESQUEMA_INVALIDO", f"/eventos/{i}/{campo}", f"{valor!r} no es un estado de {tipo}")
+                    _finding("INVALID_SCHEMA", f"/events/{i}/{field}", f"{value!r} is not a state of {type_}")
                 )
-        out += _ordenado(ev.get("valido_desde"), ev.get("valido_hasta"), f"/eventos/{i}")
-    if modo == "canonico" and not out:
-        out += _historial_canonico(eventos, registro, tipo)
+        out += _sorted(ev.get("valid_from"), ev.get("valid_until"), f"/events/{i}")
+    if mode == "canonical" and not out:
+        out += _canonical_history(events, record, type_)
     return out
 
 
-def _historial_canonico(eventos, registro, tipo):
-    """Un registro canónico materializa su estado desde eventos admitidos, empezando por creación o importación."""
-    locales = [i for i, ev in enumerate(eventos) if ev.get("registrado_en") is None]
-    if locales:
+def _canonical_history(events, record, type_):
+    """A canonical record materializes its state from admitted events, starting with a creation or an import."""
+    local = [i for i, ev in enumerate(events) if ev.get("recorded_at") is None]
+    if local:
         return [
-            _hallazgo("ESQUEMA_INVALIDO", f"/eventos/{i}", "evento local no admitido en un registro canónico")
-            for i in locales
+            _finding("INVALID_SCHEMA", f"/events/{i}", "local event not admitted in a canonical record")
+            for i in local
         ]
-    if not any(ev.get("tipo_evento") in m.EVENTOS_DE_ESTADO for ev in eventos):
-        return [_hallazgo("ESQUEMA_INVALIDO", "/eventos", "sin creación ni importación: el estado no tiene historial")]
+    if not any(ev.get("event_type") in m.STATE_EVENTS for ev in events):
+        return [_finding("INVALID_SCHEMA", "/events", "no creation nor import: the state has no history")]
     try:
-        materializado = estado_en(eventos, None, tipo)
-    except (ErrorDeHistorial, ValueError) as exc:
-        return [_hallazgo(getattr(exc, "codigo", "ESQUEMA_INVALIDO"), "/eventos", str(exc))]
+        materialized = state_at(events, None, type_)
+    except (HistoryError, ValueError) as exc:
+        return [_finding(getattr(exc, "code", "INVALID_SCHEMA"), "/events", str(exc))]
     out = []
-    if materializado != registro.get("estado"):
-        out.append(_hallazgo("ESQUEMA_INVALIDO", "/estado", f"el historial admitido da {materializado!r}"))
-    if tipo == "decision":
-        out += _aceptacion_ratificada(eventos)
+    if materialized != record.get("state"):
+        out.append(_finding("INVALID_SCHEMA", "/state", f"the admitted history gives {materialized!r}"))
+    if type_ == "decision":
+        out += _ratified_acceptance(events)
     return out
 
 
-def _aceptacion_ratificada(eventos):
-    """Aceptar una decisión exige una ratificación previa no revocada. Su autenticidad la comprueba la integración."""
-    vigentes, out = set(), []
-    for i, ev in enumerate(eventos):
-        clase = ev.get("tipo_evento")
-        if clase == "ratificacion":
-            vigentes.add(ev["aprobacion"]["aprobacion_id"])
-        elif clase == "revocacion_aprobacion":
-            vigentes.discard(ev.get("aprobacion_id"))
-        elif clase == "transicion" and ev.get("estado_nuevo") == "aceptada" and not vigentes:
+def _ratified_acceptance(events):
+    """Accepting a decision requires a previous, unrevoked ratification. Integration checks its authenticity."""
+    active, out = set(), []
+    for i, ev in enumerate(events):
+        class_ = ev.get("event_type")
+        if class_ == "ratification":
+            active.add(ev["approval"]["approval_id"])
+        elif class_ == "approval_revocation":
+            active.discard(ev.get("approval_id"))
+        elif class_ == "transition" and ev.get("new_state") == "accepted" and not active:
             out.append(
-                _hallazgo("AUTORIDAD_INSUFICIENTE", f"/eventos/{i}", "aceptación sin ratificación previa vigente")
+                _finding("INSUFFICIENT_AUTHORITY", f"/events/{i}", "acceptance without a previous ratification in force")
             )
     return out
 
 
-def _cuerpo(registro, tipo, cuerpo, modo):
+def _body(record, type_, body, mode):
     out = []
     try:
-        anclas = clausulas(cuerpo)
-    except ErrorDeMarca as exc:
-        return [_hallazgo("ESQUEMA_INVALIDO", "cuerpo", str(exc))]
-    if tipo == "decision" and modo != "intercambio" and not anclas:
-        out.append(_hallazgo("ESQUEMA_INVALIDO", "cuerpo", "una decisión expresa sus reglas en cláusulas"))
-    propio = f"{registro.get('id')}#"
-    for i, mod in enumerate(registro.get("modifica") or []):
-        por = mod.get("por") if isinstance(mod, dict) else None
-        if isinstance(por, str) and por.startswith(propio) and por[len(propio) :] not in anclas:
-            out.append(_hallazgo("REFERENCIA_AUSENTE", f"/modifica/{i}/por", f"la cláusula {por} no está en el cuerpo"))
-    for i, e in enumerate(registro.get("define") or []):
-        clausula = e.get("clausula") if isinstance(e, dict) else None
-        if isinstance(clausula, str) and clausula not in anclas:
+        anchors = clauses(body)
+    except MarkupError as exc:
+        return [_finding("INVALID_SCHEMA", "body", str(exc))]
+    if type_ == "decision" and mode != "exchange" and not anchors:
+        out.append(_finding("INVALID_SCHEMA", "body", "a decision states its rules in clauses"))
+    own = f"{record.get('id')}#"
+    for i, mod in enumerate(record.get("amends") or []):
+        by = mod.get("by") if isinstance(mod, dict) else None
+        if isinstance(by, str) and by.startswith(own) and by[len(own) :] not in anchors:
+            out.append(_finding("MISSING_REFERENCE", f"/amends/{i}/by", f"the clause {by} is not in the body"))
+    for i, e in enumerate(record.get("defines") or []):
+        clause = e.get("clause") if isinstance(e, dict) else None
+        if isinstance(clause, str) and clause not in anchors:
             out.append(
-                _hallazgo("REFERENCIA_AUSENTE", f"/define/{i}/clausula", f"la cláusula {clausula} no está en el cuerpo")
+                _finding("MISSING_REFERENCE", f"/defines/{i}/clause", f"the clause {clause} is not in the body")
             )
     try:
-        marcas = hechos(cuerpo)
-    except ErrorDeMarca as exc:
-        return out + [_hallazgo("ESQUEMA_INVALIDO", "cuerpo", str(exc))]
-    citas = {s.get("id") for s in registro.get("sources") or [] if isinstance(s, dict)}
-    for h in marcas:
+        marks = facts(body)
+    except MarkupError as exc:
+        return out + [_finding("INVALID_SCHEMA", "body", str(exc))]
+    citations = {s.get("id") for s in record.get("sources") or [] if isinstance(s, dict)}
+    for h in marks:
         if "ref" in h:
-            if m.tipo_de_id(h["ref"]) != "hecho" or not m.RE_ID.match(h["ref"]):
-                out.append(_hallazgo("ESQUEMA_INVALIDO", "cuerpo", f"ref de hecho inválida: {h['ref']}"))
+            if m.type_of_id(h["ref"]) != "fact" or not m.RE_ID.match(h["ref"]):
+                out.append(_finding("INVALID_SCHEMA", "body", f"invalid fact ref: {h['ref']}"))
             continue
-        if h["evidencia"] not in m.CLASES_EVIDENCIA:
+        if h["evidence"] not in m.EVIDENCE_CLASSES:
             out.append(
-                _hallazgo(
-                    "ESQUEMA_INVALIDO", "cuerpo", f"clase de evidencia desconocida en {h['id']}: {h['evidencia']}"
+                _finding(
+                    "INVALID_SCHEMA", "body", f"unknown evidence class in {h['id']}: {h['evidence']}"
                 )
             )
-        if h["fuente"] not in citas:
+        if h["source"] not in citations:
             out.append(
-                _hallazgo(
-                    "REFERENCIA_AUSENTE",
-                    "cuerpo",
-                    f"el hecho {h['id']} cita la fuente {h['fuente']}, que no está en sources",
+                _finding(
+                    "MISSING_REFERENCE",
+                    "body",
+                    f"the fact {h['id']} cites the source {h['source']}, which is not in sources",
                 )
             )
     return out

@@ -1,9 +1,9 @@
-## Qué cambia y por qué
+## What changes and why
 
-<!-- Enlaza la incidencia si la hay. -->
+<!-- Link the issue if there is one. -->
 
-## Comprobación
+## Check
 
-- [ ] `uv run python tools/comprobar.py` pasa en mi máquina (indica si fue con `--sin-di` o `--rapido`).
-- [ ] Si cambia una salida de la CLI o el esquema, lleva su nota en `docs/cambios.md` y su entrada en `CHANGELOG.md`.
-- [ ] El README no afirma nada que el código no haga.
+- [ ] `uv run python tools/check.py` passes on my machine (say whether it was with `--no-di` or `--quick`).
+- [ ] If a CLI output or the schema changes, it has its note in `docs/breaking-changes.md` and its entry in `CHANGELOG.md`.
+- [ ] The README claims nothing the code does not do.

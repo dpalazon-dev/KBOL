@@ -1,6 +1,6 @@
 """Records the README demo GIF from real KBOL output, drawn frame by frame with Pillow.
 
-    uv run --with pillow python tools/demo_gif.py [--salida docs/demo.gif]
+    uv run --with pillow python tools/demo_gif.py [--output docs/demo.gif]
 
 It builds the quick-start project in a temporary folder (examples/quickstart.sh), runs each command of the scenes
 below for real and draws a terminal that types the command and prints its actual output. Needs bash, git and uv.
@@ -19,134 +19,137 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-RAIZ = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 DEC = "DEC-33333333-3333-4333-8333-333333333333"
 
-ANCHO, ALTO, MARGEN, COLUMNAS, FILAS = 1180, 700, 26, 96, 24
-FONDO, TEXTO, PROMPT, COMENTARIO, BARRA = "#1e1e2e", "#cdd6f4", "#a6e3a1", "#7f849c", "#313244"
-ETIQUETA = {"[APROBADA]": "#a6e3a1", "[CANDIDATO": "#f9e2af", "bloqueado": "#f38ba8"}
+# Drawn at twice the display size, so it stays sharp on high-density screens.
+S = 2
+WIDTH, HEIGHT, MARGIN, COLUMNS, ROWS = 1180 * S, 700 * S, 26 * S, 96, 24
+BAR_HEIGHT = 34 * S
+BACKGROUND, TEXT, PROMPT, COMMENT, BAR = "#1e1e2e", "#cdd6f4", "#a6e3a1", "#7f849c", "#313244"
+LABEL = {"[APPROVED]": "#a6e3a1", "[CANDIDATE": "#f9e2af", "blocked": "#f38ba8"}
 
 
-def ahora():
+def now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def fuente():
-    for ruta in ("C:/Windows/Fonts/consola.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+def font():
+    for path in ("C:/Windows/Fonts/consola.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
                  "/System/Library/Fonts/Menlo.ttc"):
-        if Path(ruta).exists():
-            return ImageFont.truetype(ruta, 17)
+        if Path(path).exists():
+            return ImageFont.truetype(path, 17 * S)
     return ImageFont.load_default()
 
 
 class Terminal:
     def __init__(self):
-        self.lineas = []  # (texto, color)
-        self.fotogramas, self.duraciones = [], []
-        self.fuente = fuente()
-        self.alto_linea = int(self.fuente.size * 1.45)
+        self.lines = []  # (text, color)
+        self.frames, self.durations = [], []
+        self.font = font()
+        self.line_height = int(self.font.size * 1.45)
 
-    def _dibujar(self, cursor=False):
-        img = Image.new("RGB", (ANCHO, ALTO), FONDO)
+    def _draw(self, cursor=False):
+        img = Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
         d = ImageDraw.Draw(img)
-        d.rectangle([0, 0, ANCHO, 34], fill=BARRA)
+        d.rectangle([0, 0, WIDTH, BAR_HEIGHT], fill=BAR)
         for i, color in enumerate(("#f38ba8", "#f9e2af", "#a6e3a1")):
-            d.ellipse([16 + i * 22, 11, 28 + i * 22, 23], fill=color)
-        d.text((ANCHO // 2 - 60, 9), "kbol demo", font=self.fuente, fill=COMENTARIO)
-        visibles = self.lineas[-FILAS:]
-        for n, (texto, color) in enumerate(visibles):
-            y = 34 + MARGEN // 2 + n * self.alto_linea
-            d.text((MARGEN, y), texto, font=self.fuente, fill=color)
-            if cursor and n == len(visibles) - 1:
-                x = MARGEN + d.textlength(texto, font=self.fuente)
-                d.rectangle([x + 2, y + 2, x + 11, y + self.fuente.size + 2], fill=TEXTO)
+            d.ellipse([(16 + i * 22) * S, 11 * S, (28 + i * 22) * S, 23 * S], fill=color)
+        d.text((WIDTH // 2 - 60 * S, 9 * S), "kbol demo", font=self.font, fill=COMMENT)
+        visible = self.lines[-ROWS:]
+        for n, (text, color) in enumerate(visible):
+            y = BAR_HEIGHT + MARGIN // 2 + n * self.line_height
+            d.text((MARGIN, y), text, font=self.font, fill=color)
+            if cursor and n == len(visible) - 1:
+                x = MARGIN + d.textlength(text, font=self.font)
+                d.rectangle([x + 2 * S, y + 2 * S, x + 11 * S, y + self.font.size + 2 * S], fill=TEXT)
         return img
 
-    def foto(self, ms, cursor=False):
-        self.fotogramas.append(self._dibujar(cursor))
-        self.duraciones.append(ms)
+    def snap(self, ms, cursor=False):
+        self.frames.append(self._draw(cursor))
+        self.durations.append(ms)
 
-    def escribir(self, orden, comentario=False, continuacion=False):
-        prefijo = "" if comentario else ("> " if continuacion else "$ ")
-        color = COMENTARIO if comentario else TEXTO
-        self.lineas.append((prefijo, PROMPT))
-        for i in range(0, len(orden) + 1, 3):
-            self.lineas[-1] = (prefijo + orden[:i], color if comentario else TEXTO)
-            self.foto(45, cursor=True)
-        self.lineas[-1] = (prefijo + orden, color)
-        self.foto(350 if comentario else 500)
+    def write(self, command, comment=False, continuation=False):
+        prefix = "" if comment else ("> " if continuation else "$ ")
+        color = COMMENT if comment else TEXT
+        self.lines.append((prefix, PROMPT))
+        for i in range(0, len(command) + 1, 3):
+            self.lines[-1] = (prefix + command[:i], color if comment else TEXT)
+            self.snap(45, cursor=True)
+        self.lines[-1] = (prefix + command, color)
+        self.snap(350 if comment else 500)
 
-    def salida(self, texto, pausa):
-        for linea in texto.rstrip("\n").splitlines() or [""]:
-            for trozo in textwrap.wrap(linea, COLUMNAS, subsequent_indent="    ") or [""]:
-                color = next((c for k, c in ETIQUETA.items() if trozo.lstrip().startswith(k)), TEXTO)
-                self.lineas.append((trozo, color))
-        self.lineas.append(("", TEXTO))
-        self.foto(pausa)
+    def output(self, text, pause):
+        for line in text.rstrip("\n").splitlines() or [""]:
+            for chunk in textwrap.wrap(line, COLUMNS, subsequent_indent="    ") or [""]:
+                color = next((c for k, c in LABEL.items() if chunk.lstrip().startswith(k)), TEXT)
+                self.lines.append((chunk, color))
+        self.lines.append(("", TEXT))
+        self.snap(pause)
 
-    def limpiar(self):
-        self.lineas = []
-        self.foto(200)
+    def clear(self):
+        self.lines = []
+        self.snap(200)
 
 
-def ejecutar(args, cwd, env):
+def run(args, cwd, env):
     p = subprocess.run(args, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace")
     return p.stdout
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--salida", default=str(RAIZ / "docs" / "demo.gif"))
+    ap.add_argument("--output", default=str(ROOT / "docs" / "demo.gif"))
     args = ap.parse_args(argv)
     bash = shutil.which("bash")
     if os.name == "nt" and Path("C:/Program Files/Git/bin/bash.exe").exists():
-        bash = "C:/Program Files/Git/bin/bash.exe"  # no el bash de WSL
-    kbol = ["uv", "run", "-q", "--project", str(RAIZ), "kbol"]
+        bash = "C:/Program Files/Git/bin/bash.exe"  # not WSL's bash
+    kbol = ["uv", "run", "-q", "--project", str(ROOT), "kbol"]
     with tempfile.TemporaryDirectory() as tmp:
         demo = Path(tmp) / "kbol-demo"
-        env = {**os.environ, "KBOL": " ".join(kbol).replace(str(RAIZ), RAIZ.as_posix())}
-        subprocess.run([bash, (RAIZ / "examples" / "quickstart.sh").as_posix(), demo.as_posix()], env=env,
+        env = {**os.environ, "KBOL": " ".join(kbol).replace(str(ROOT), ROOT.as_posix())}
+        subprocess.run([bash, (ROOT / "examples" / "quickstart.sh").as_posix(), demo.as_posix()], env=env,
                        check=True, capture_output=True)
-        proyecto = demo / "miproyecto"
-        env = {**os.environ, "KBOL_ESTADO": str(demo / ".estado")}
-        subprocess.run(["git", "switch", "-q", "-c", "cambio"], cwd=proyecto, check=True)
+        project = demo / "myproject"
+        env = {**os.environ, "KBOL_STATE": str(demo / ".state")}
+        subprocess.run(["git", "switch", "-q", "-c", "change"], cwd=project, check=True)
         t = Terminal()
-        t.foto(400)
+        t.snap(400)
 
-        t.escribir("# A project with one decision, approved and integrated through KBOL's gate.", comentario=True)
-        t.escribir(f"DEC={DEC}")
-        t.escribir("# What is in force today, and who approved it?", comentario=True)
-        t.escribir("kbol consultar . --carpeta kb --ids $DEC --valido-en $(date -u +%FT%TZ) --llano")
-        t.salida(ejecutar([*kbol, "consultar", ".", "--carpeta", "kb", "--ids", DEC, "--valido-en", ahora(), "--llano"],
-                          proyecto, env), 4200)
+        t.write("# A project with one decision, approved and integrated through KBOL's gate.", comment=True)
+        t.write(f"DEC={DEC}")
+        t.write("# What is in force today, and who approved it?", comment=True)
+        t.write("kbol query . --folder kb --ids $DEC --valid-at $(date -u +%FT%TZ) --plain")
+        t.output(run([*kbol, "query", ".", "--folder", "kb", "--ids", DEC, "--valid-at", now(), "--plain"],
+                     project, env), 4200)
 
-        t.escribir("# No ID at hand? Search by text.", comentario=True)
-        t.escribir('kbol buscar . --carpeta kb --consulta "base de datos" --valido-en $(date -u +%FT%TZ) --llano')
-        t.salida(ejecutar([*kbol, "buscar", ".", "--carpeta", "kb", "--consulta", "base de datos", "--valido-en",
-                           ahora(), "--llano"], proyecto, env), 4200)
+        t.write("# No ID at hand? Search by text.", comment=True)
+        t.write('kbol search . --folder kb --query "database" --valid-at $(date -u +%FT%TZ) --plain')
+        t.output(run([*kbol, "search", ".", "--folder", "kb", "--query", "database", "--valid-at",
+                      now(), "--plain"], project, env), 4200)
 
-        t.limpiar()
-        t.escribir("# Someone rewrites the accepted decision by hand...", comentario=True)
-        t.escribir("sed -i 's/PostgreSQL 16/SQLite 3/' kb/$DEC.md")
-        ruta = proyecto / "kb" / f"{DEC}.md"
-        ruta.write_text(ruta.read_text(encoding="utf-8").replace("PostgreSQL 16", "SQLite 3"), encoding="utf-8")
-        t.foto(400)
-        t.escribir("# ...and tries to integrate it through the gate:", comentario=True)
-        t.escribir("kbol proponer . --instalacion instalacion.json --operacion-id cambio --archivos kb/$DEC.md \\")
-        t.escribir("  | jq -r '.resultado | .estado, .motivo, .hallazgos[].mensaje'", continuacion=True)
-        sobre = json.loads(ejecutar([*kbol, "proponer", ".", "--instalacion", "instalacion.json", "--operacion-id",
-                                     "cambio", "--archivos", f"kb/{DEC}.md"], proyecto, env))
-        r = sobre["resultado"]
-        t.salida("\n".join([r["estado"],r.get("motivo", ""), *(h["mensaje"] for h in r.get("hallazgos", []))]),
+        t.clear()
+        t.write("# Someone rewrites the accepted decision by hand...", comment=True)
+        t.write("sed -i 's/PostgreSQL 16/SQLite 3/' kb/$DEC.md")
+        path = project / "kb" / f"{DEC}.md"
+        path.write_text(path.read_text(encoding="utf-8").replace("PostgreSQL 16", "SQLite 3"), encoding="utf-8")
+        t.snap(400)
+        t.write("# ...and tries to integrate it through the gate:", comment=True)
+        t.write("kbol propose . --installation kbol.json --operation-id change --files kb/$DEC.md \\")
+        t.write("  | jq -r '.result | .state, .reason, .findings[].message'", continuation=True)
+        envelope = json.loads(run([*kbol, "propose", ".", "--installation", "kbol.json", "--operation-id",
+                                   "change", "--files", f"kb/{DEC}.md"], project, env))
+        r = envelope["result"]
+        t.output("\n".join([r["state"], r.get("reason", ""), *(h["message"] for h in r.get("findings", []))]),
                  1500)
-        t.escribir("# Closed clauses are never rewritten: a new decision has to amend them.", comentario=True)
-        t.foto(5000)
+        t.write("# Closed clauses are never rewritten: a new decision has to amend them.", comment=True)
+        t.snap(5000)
 
-    salida = Path(args.salida)
-    paleta = [f.quantize(colors=64, method=Image.Quantize.MEDIANCUT) for f in t.fotogramas]
-    paleta[0].save(salida, save_all=True, append_images=paleta[1:], duration=t.duraciones, loop=0, optimize=True,
-                   disposal=1)
-    print(f"{salida}: {len(paleta)} fotogramas, {sum(t.duraciones) / 1000:.1f} s, {salida.stat().st_size // 1024} KB")
+    output = Path(args.output)
+    palette = [f.quantize(colors=64, method=Image.Quantize.MEDIANCUT) for f in t.frames]
+    palette[0].save(output, save_all=True, append_images=palette[1:], duration=t.durations, loop=0, optimize=True,
+                    disposal=1)
+    print(f"{output}: {len(palette)} frames, {sum(t.durations) / 1000:.1f} s, {output.stat().st_size // 1024} KB")
     return 0
 
 

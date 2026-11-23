@@ -1,8 +1,11 @@
-"""Unidades de norma según la versión estructurada del editor: HTML de EUR-Lex y XML del BOE.
+"""Norm units according to the publisher's structured version: EUR-Lex HTML and BOE XML.
 
-Es la referencia con que se mide la extracción del PDF, no evidencia citable. Las claves son las de `norma-v1`
-(`cons`, `anx`, `art`, `ap`, `let`) y cada unidad lleva su texto completo, con el de sus hijas. Lo que el editor no
-estructura (los puntos internos de un anexo de EUR-Lex) se mide al nivel del anexo entero.
+It is the reference against which the PDF extraction is measured, not citable evidence. The keys are those of
+`norm-v1` (`cons`, `anx`, `art`, `ap`, `let`) and each unit carries its full text, including its children's. What
+the publisher does not structure (the inner points of a EUR-Lex annex) is measured at the level of the whole annex.
+
+The BOE patterns and element classes (`articulo`, `anexo_num`, `Artículo n.`, `ANEXO X`) are the publisher's own
+markup and Spanish wording, read as input.
 """
 
 import html
@@ -10,143 +13,143 @@ import re
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 
-_VACIOS = {"area", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "wbr"}
-_ID_EURLEX = re.compile(r"rct_(\d+)|art_(\d+)|(\d{3})\.(\d{3})|anx_([IVXLC]+)")
-_LETRA = re.compile(r"^([a-zñ])\)$")
-_ROMANO = re.compile(r"^(i{1,3}|iv|vi{0,3}|ix|x)\)$")
-# Notas al pie, sus llamadas y cabeceras de tabla: la estructura extraída tampoco las cuenta.
-_OMITIR = {"oj-note", "oj-super", "oj-tbl-hdr"}
+_VOID = {"area", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "wbr"}
+_EURLEX_ID = re.compile(r"rct_(\d+)|art_(\d+)|(\d{3})\.(\d{3})|anx_([IVXLC]+)")
+_LETTER = re.compile(r"^([a-zñ])\)$")
+_ROMAN = re.compile(r"^(i{1,3}|iv|vi{0,3}|ix|x)\)$")
+# Footnotes, their calls and table headers: the extracted structure does not count them either.
+_SKIP = {"oj-note", "oj-super", "oj-tbl-hdr"}
 
 
-class _Arbol(HTMLParser):
+class _Tree(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.raiz = {"tag": "raiz", "attrs": {}, "hijos": []}
-        self.pila = [self.raiz]
+        self.root = {"tag": "root", "attrs": {}, "children": []}
+        self.stack = [self.root]
 
     def handle_starttag(self, tag, attrs):
-        nodo = {"tag": tag, "attrs": dict(attrs), "hijos": []}
-        self.pila[-1]["hijos"].append(nodo)
-        if tag not in _VACIOS:
-            self.pila.append(nodo)
+        node = {"tag": tag, "attrs": dict(attrs), "children": []}
+        self.stack[-1]["children"].append(node)
+        if tag not in _VOID:
+            self.stack.append(node)
 
     def handle_endtag(self, tag):
-        for i in range(len(self.pila) - 1, 0, -1):
-            if self.pila[i]["tag"] == tag:
-                del self.pila[i:]
+        for i in range(len(self.stack) - 1, 0, -1):
+            if self.stack[i]["tag"] == tag:
+                del self.stack[i:]
                 return
 
     def handle_data(self, data):
-        self.pila[-1]["hijos"].append(data)
+        self.stack[-1]["children"].append(data)
 
 
-def _texto(nodo) -> str:
-    partes = []
+def _text(node) -> str:
+    parts = []
 
-    def visitar(n):
+    def visit(n):
         if isinstance(n, str):
-            partes.append(n)
+            parts.append(n)
             return
-        if _OMITIR & set(n["attrs"].get("class", "").split()):
+        if _SKIP & set(n["attrs"].get("class", "").split()):
             return
-        for h in n["hijos"]:
-            visitar(h)
+        for h in n["children"]:
+            visit(h)
         if n["tag"] in ("p", "div", "tr", "li"):
-            partes.append("\n")
+            parts.append("\n")
 
-    visitar(nodo)
-    return re.sub(r"[ \t  ]+", " ", "".join(partes)).strip()
+    visit(node)
+    return re.sub(r"[ \t  ]+", " ", "".join(parts)).strip()
 
 
-def _recorrer(nodo):
-    yield nodo
-    for h in nodo["hijos"]:
+def _walk(node):
+    yield node
+    for h in node["children"]:
         if not isinstance(h, str):
-            yield from _recorrer(h)
+            yield from _walk(h)
 
 
-def unidades_editor_eurlex(documento: str) -> dict[str, str]:
-    arbol = _Arbol()
-    arbol.feed(documento)
-    unidades: dict[str, str] = {}
-    for nodo in _recorrer(arbol.raiz):
-        m = _ID_EURLEX.fullmatch(nodo["attrs"].get("id", ""))
+def editor_units_eurlex(document: str) -> dict[str, str]:
+    tree = _Tree()
+    tree.feed(document)
+    units: dict[str, str] = {}
+    for node in _walk(tree.root):
+        m = _EURLEX_ID.fullmatch(node["attrs"].get("id", ""))
         if not m:
             continue
         cons, art, art_ap, ap, anx = m.groups()
         if cons:
-            clave = f"cons={cons}"
+            key = f"cons={cons}"
         elif art:
-            clave = f"art={art}"
+            key = f"art={art}"
         elif anx:
-            clave = f"anx={anx}"
+            key = f"anx={anx}"
         else:
-            clave = f"art={int(art_ap)};ap={int(ap)}"
+            key = f"art={int(art_ap)};ap={int(ap)}"
         if art or art_ap:
-            _marcas(nodo, clave, unidades)
-        unidades[clave] = _texto(nodo)
-    return unidades
+            _markers(node, key, units)
+        units[key] = _text(node)
+    return units
 
 
-def _filas(nodo):
-    """Filas de tabla bajo `nodo` sin entrar en celdas (tablas anidadas) ni en otras subdivisiones con id."""
-    for h in nodo["hijos"]:
+def _rows(node):
+    """Table rows under `node` without entering cells (nested tables) or other subdivisions with an id."""
+    for h in node["children"]:
         if isinstance(h, str):
             continue
         if h["tag"] == "tr":
             yield h
-        elif h["tag"] != "td" and not _ID_EURLEX.fullmatch(h["attrs"].get("id", "")):
-            yield from _filas(h)
+        elif h["tag"] != "td" and not _EURLEX_ID.fullmatch(h["attrs"].get("id", "")):
+            yield from _rows(h)
 
 
-def _marcas(nodo, clave: str, unidades: dict[str, str]):
-    """Letras `a)` de las filas directas y, dentro de cada letra, numerales romanos `i)` anidados (`num`)."""
-    for fila in _filas(nodo):
-        celdas = [n for n in fila["hijos"] if not isinstance(n, str) and n["tag"] == "td"]
-        if len(celdas) < 2:
+def _markers(node, key: str, units: dict[str, str]):
+    """Letters `a)` of the direct rows and, inside each letter, nested Roman numerals `i)` (`num`)."""
+    for row in _rows(node):
+        cells = [n for n in row["children"] if not isinstance(n, str) and n["tag"] == "td"]
+        if len(cells) < 2:
             continue
-        marca = _texto(celdas[0])
-        if letra := _LETRA.match(marca):
-            sub = f"{clave};let={letra.group(1)}"
-            unidades[sub] = _texto(celdas[1])
-            for fila2 in _filas(celdas[1]):
-                celdas2 = [n for n in fila2["hijos"] if not isinstance(n, str) and n["tag"] == "td"]
-                if len(celdas2) >= 2 and (romano := _ROMANO.match(_texto(celdas2[0]))):
-                    unidades[f"{sub};num={romano.group(1)}"] = _texto(celdas2[1])
-        elif romano := _ROMANO.match(marca):
-            unidades[f"{clave};num={romano.group(1)}"] = _texto(celdas[1])
+        marker = _text(cells[0])
+        if letter := _LETTER.match(marker):
+            sub = f"{key};let={letter.group(1)}"
+            units[sub] = _text(cells[1])
+            for row2 in _rows(cells[1]):
+                cells2 = [n for n in row2["children"] if not isinstance(n, str) and n["tag"] == "td"]
+                if len(cells2) >= 2 and (roman := _ROMAN.match(_text(cells2[0]))):
+                    units[f"{sub};num={roman.group(1)}"] = _text(cells2[1])
+        elif roman := _ROMAN.match(marker):
+            units[f"{key};num={roman.group(1)}"] = _text(cells[1])
 
 
-_ARTICULO = re.compile(r"Artículo\s+(\d+)\.")
-_APARTADO = re.compile(r"^(\d+)\.\s")
-_LETRA_BOE = re.compile(r"^([a-zñ])\)\s")
-_ANEXO = re.compile(r"ANEXO\s+([IVXLC]+)$")
+_ARTICLE = re.compile(r"Artículo\s+(\d+)\.")
+_PARAGRAPH = re.compile(r"^(\d+)\.\s")
+_LETTER_BOE = re.compile(r"^([a-zñ])\)\s")
+_ANNEX = re.compile(r"ANEXO\s+([IVXLC]+)$")
 
 
-def unidades_editor_boe(documento: str) -> dict[str, str]:
-    texto = ET.fromstring(documento).find("texto")
-    unidades: dict[str, list[str]] = {}
-    abiertas: list[str] = []
-    for p in texto.iter("p"):
-        clase = p.get("class", "")
-        contenido = html.unescape("".join(p.itertext())).replace(" ", " ").replace(" ", " ").strip()
-        if not contenido:
+def editor_units_boe(document: str) -> dict[str, str]:
+    body = ET.fromstring(document).find("texto")
+    units: dict[str, list[str]] = {}
+    open_keys: list[str] = []
+    for p in body.iter("p"):
+        css_class = p.get("class", "")
+        content = html.unescape("".join(p.itertext())).replace(" ", " ").replace(" ", " ").strip()
+        if not content:
             continue
-        if clase == "articulo":
-            m = _ARTICULO.match(contenido)
-            abiertas = [f"art={m.group(1)}"] if m else []
-        elif clase == "anexo_num":
-            m = _ANEXO.match(contenido)
-            abiertas = [f"anx={m.group(1)}"] if m else []
-        elif clase in ("capitulo_num", "firma_rey", "firma_ministro") or contenido.startswith("Disposición "):
-            abiertas = []
-        elif abiertas and abiertas[0].startswith("art="):
-            ap, letra = _APARTADO.match(contenido), _LETRA_BOE.match(contenido)
+        if css_class == "articulo":
+            m = _ARTICLE.match(content)
+            open_keys = [f"art={m.group(1)}"] if m else []
+        elif css_class == "anexo_num":
+            m = _ANNEX.match(content)
+            open_keys = [f"anx={m.group(1)}"] if m else []
+        elif css_class in ("capitulo_num", "firma_rey", "firma_ministro") or content.startswith("Disposición "):
+            open_keys = []
+        elif open_keys and open_keys[0].startswith("art="):
+            ap, letter = _PARAGRAPH.match(content), _LETTER_BOE.match(content)
             if ap:
-                abiertas = [abiertas[0], f"{abiertas[0]};ap={ap.group(1)}"]
-            elif letra:
-                base = next((k for k in abiertas if ";ap=" in k and ";let=" not in k), abiertas[0])
-                abiertas = [k for k in abiertas if ";let=" not in k] + [f"{base};let={letra.group(1)}"]
-        for clave in abiertas:
-            unidades.setdefault(clave, []).append(contenido)
-    return {k: "\n".join(v) for k, v in unidades.items()}
+                open_keys = [open_keys[0], f"{open_keys[0]};ap={ap.group(1)}"]
+            elif letter:
+                base = next((k for k in open_keys if ";ap=" in k and ";let=" not in k), open_keys[0])
+                open_keys = [k for k in open_keys if ";let=" not in k] + [f"{base};let={letter.group(1)}"]
+        for key in open_keys:
+            units.setdefault(key, []).append(content)
+    return {k: "\n".join(v) for k, v in units.items()}

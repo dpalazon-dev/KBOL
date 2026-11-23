@@ -1,111 +1,111 @@
-"""Marcas de cláusula y de afirmación del contrato concreto.
+"""Clause and claim markup of the concrete contract.
 
-`<clausula id="C1">` abre una cláusula en una línea propia y `</clausula>` la cierra en otra; no se anidan y el
-identificador es único. `<hecho id="H1" evidencia="…" fuente="…">…</hecho>` marca una afirmación en línea y
-`<hecho ref="HE-…">…</hecho>` cita un registro de hecho. Las marcas dentro de bloques de código, de código en línea o
-escapadas con barra inversa no se interpretan.
+`<clause id="C1">` opens a clause on its own line and `</clause>` closes it on another; they do not nest and the
+identifier is unique. `<fact id="H1" evidence="…" source="…">…</fact>` marks an inline claim and
+`<fact ref="FACT-…">…</fact>` cites a fact record. Markup inside code blocks or inline code, or escaped with a
+backslash, is not interpreted.
 """
 
 import re
 
-from .modelo import ANCLA
+from .model import ANCHOR
 
-_APERTURA = re.compile(rf'^<clausula id="({ANCLA})">$')
-_CIERRE = "</clausula>"
-_MARCA = re.compile(r"^\s*</?clausula\b")
-_HECHO = re.compile(r"(?<!\\)<hecho\b([^>]*)>(.*?)(?<!\\)</hecho>", re.S)
-_APERTURA_HECHO = re.compile(r"(?<!\\)<hecho\b")
-_ATRIBUTO = re.compile(r'\s+([a-z_]+)="([^"]*)"')
-_CODIGO_EN_LINEA = re.compile(r"(`+)(?:(?!\1).)+?\1", re.S)
-_PARRAFO = re.compile(r"(\n[ \t]*\n)")
-_ID_HECHO = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*(?!\n)$")
-
-
-class ErrorDeMarca(ValueError):
-    """Marca de cláusula o de afirmación mal formada."""
+_OPENING = re.compile(rf'^<clause id="({ANCHOR})">$')
+_CLOSING = "</clause>"
+_MARK = re.compile(r"^\s*</?clause\b")
+_FACT = re.compile(r"(?<!\\)<fact\b([^>]*)>(.*?)(?<!\\)</fact>", re.S)
+_FACT_OPENING = re.compile(r"(?<!\\)<fact\b")
+_ATTRIBUTE = re.compile(r'\s+([a-z_]+)="([^"]*)"')
+_INLINE_CODE = re.compile(r"(`+)(?:(?!\1).)+?\1", re.S)
+_PARAGRAPH = re.compile(r"(\n[ \t]*\n)")
+_FACT_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*(?!\n)$")
 
 
-def _lineas_de_codigo(cuerpo):
-    from markdown_it import MarkdownIt  # al usarlo: importarlo cuesta lo que una orden entera
+class MarkupError(ValueError):
+    """Malformed clause or claim markup."""
 
-    excluidas = set()
-    for token in MarkdownIt().parse(cuerpo):
+
+def _code_lines(body):
+    from markdown_it import MarkdownIt  # on use: importing it costs as much as a whole command
+
+    excluded = set()
+    for token in MarkdownIt().parse(body):
         if token.type in ("fence", "code_block") and token.map:
-            excluidas.update(range(*token.map))
-    return excluidas
+            excluded.update(range(*token.map))
+    return excluded
 
 
-def _texto_sin_codigo(cuerpo):
-    excluidas = _lineas_de_codigo(cuerpo)
-    lineas = ["" if i in excluidas else linea for i, linea in enumerate(cuerpo.split("\n"))]
-    # El código en línea no cruza una línea en blanco: se busca párrafo a párrafo.
-    trozos = _PARRAFO.split("\n".join(lineas))
+def _text_without_code(body):
+    excluded = _code_lines(body)
+    lines = ["" if i in excluded else line for i, line in enumerate(body.split("\n"))]
+    # Inline code does not cross a blank line: it is searched paragraph by paragraph.
+    chunks = _PARAGRAPH.split("\n".join(lines))
     return "".join(
-        t if i % 2 else _CODIGO_EN_LINEA.sub(lambda m: " " * len(m.group(0)), t) for i, t in enumerate(trozos)
+        t if i % 2 else _INLINE_CODE.sub(lambda m: " " * len(m.group(0)), t) for i, t in enumerate(chunks)
     )
 
 
-def clausulas(cuerpo):
-    """{ancla: texto} en orden de aparición."""
-    lineas = cuerpo.replace("\r\n", "\n").split("\n")
-    excluidas = _lineas_de_codigo("\n".join(lineas))
-    encontradas, actual, inicio = {}, None, 0
-    for i, linea in enumerate(lineas):
-        if i in excluidas:
+def clauses(body):
+    """{anchor: text} in order of appearance."""
+    lines = body.replace("\r\n", "\n").split("\n")
+    excluded = _code_lines("\n".join(lines))
+    found, current, start = {}, None, 0
+    for i, line in enumerate(lines):
+        if i in excluded:
             continue
-        m = _APERTURA.match(linea)
+        m = _OPENING.match(line)
         if m:
-            ancla = m.group(1)
-            if actual is not None:
-                raise ErrorDeMarca(f"línea {i + 1}: cláusula anidada en {actual}")
-            if ancla in encontradas:
-                raise ErrorDeMarca(f"línea {i + 1}: cláusula repetida {ancla}")
-            actual, inicio = ancla, i + 1
-        elif linea == _CIERRE:
-            if actual is None:
-                raise ErrorDeMarca(f"línea {i + 1}: cierre sin apertura")
-            encontradas[actual] = "\n".join(lineas[inicio:i]).strip("\n")
-            actual = None
-        elif _MARCA.match(linea):
-            raise ErrorDeMarca(f"línea {i + 1}: marca de cláusula mal formada")
-    if actual is not None:
-        raise ErrorDeMarca(f"cláusula {actual} sin cierre")
-    return encontradas
+            anchor = m.group(1)
+            if current is not None:
+                raise MarkupError(f"line {i + 1}: clause nested in {current}")
+            if anchor in found:
+                raise MarkupError(f"line {i + 1}: repeated clause {anchor}")
+            current, start = anchor, i + 1
+        elif line == _CLOSING:
+            if current is None:
+                raise MarkupError(f"line {i + 1}: closing without opening")
+            found[current] = "\n".join(lines[start:i]).strip("\n")
+            current = None
+        elif _MARK.match(line):
+            raise MarkupError(f"line {i + 1}: malformed clause markup")
+    if current is not None:
+        raise MarkupError(f"clause {current} without closing")
+    return found
 
 
-def _atributos(texto):
-    pos, atributos = 0, {}
-    for m in _ATRIBUTO.finditer(texto):
-        if m.start() != pos or m.group(1) in atributos:
-            raise ErrorDeMarca(f"atributos de hecho mal formados: {texto!r}")
-        atributos[m.group(1)] = m.group(2)
+def _attributes(text):
+    pos, attrs = 0, {}
+    for m in _ATTRIBUTE.finditer(text):
+        if m.start() != pos or m.group(1) in attrs:
+            raise MarkupError(f"malformed fact attributes: {text!r}")
+        attrs[m.group(1)] = m.group(2)
         pos = m.end()
-    if texto[pos:].strip():
-        raise ErrorDeMarca(f"atributos de hecho mal formados: {texto!r}")
-    return atributos
+    if text[pos:].strip():
+        raise MarkupError(f"malformed fact attributes: {text!r}")
+    return attrs
 
 
-def hechos(cuerpo):
-    """Afirmaciones marcadas, en orden. Valida su forma; evidencia y fuente las valida el esquema."""
-    texto = _texto_sin_codigo(cuerpo)
-    resultado, vistos, consumido = [], set(), 0
-    for m in _HECHO.finditer(texto):
-        if _APERTURA_HECHO.search(texto, consumido, m.start()):
-            raise ErrorDeMarca("marca de hecho sin cierre")
-        interior = m.group(2)
-        if _APERTURA_HECHO.search(interior):
-            raise ErrorDeMarca("marcas de hecho anidadas")
-        atributos = _atributos(m.group(1))
-        if set(atributos) == {"ref"}:
-            resultado.append({"ref": atributos["ref"], "texto": interior})
-        elif set(atributos) == {"id", "evidencia", "fuente"}:
-            if not _ID_HECHO.match(atributos["id"]) or atributos["id"] in vistos:
-                raise ErrorDeMarca(f"identificador de hecho inválido o repetido: {atributos['id']}")
-            vistos.add(atributos["id"])
-            resultado.append({**atributos, "texto": interior})
+def facts(body):
+    """Marked claims, in order. Validates their shape; the schema validates evidence and source."""
+    text = _text_without_code(body)
+    result, seen, consumed = [], set(), 0
+    for m in _FACT.finditer(text):
+        if _FACT_OPENING.search(text, consumed, m.start()):
+            raise MarkupError("fact markup without closing")
+        inner = m.group(2)
+        if _FACT_OPENING.search(inner):
+            raise MarkupError("nested fact markup")
+        attrs = _attributes(m.group(1))
+        if set(attrs) == {"ref"}:
+            result.append({"ref": attrs["ref"], "text": inner})
+        elif set(attrs) == {"id", "evidence", "source"}:
+            if not _FACT_ID.match(attrs["id"]) or attrs["id"] in seen:
+                raise MarkupError(f"invalid or repeated fact identifier: {attrs['id']}")
+            seen.add(attrs["id"])
+            result.append({**attrs, "text": inner})
         else:
-            raise ErrorDeMarca(f"un hecho lleva id, evidencia y fuente, o solo ref: {sorted(atributos)}")
-        consumido = m.end()
-    if _APERTURA_HECHO.search(texto, consumido):
-        raise ErrorDeMarca("marca de hecho sin cierre")
-    return resultado
+            raise MarkupError(f"a fact carries id, evidence and source, or only ref: {sorted(attrs)}")
+        consumed = m.end()
+    if _FACT_OPENING.search(text, consumed):
+        raise MarkupError("fact markup without closing")
+    return result

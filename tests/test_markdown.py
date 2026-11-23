@@ -1,65 +1,65 @@
-"""Gramática de cláusulas y afirmaciones del contrato concreto."""
+"""Grammar of clauses and claims of the concrete contract."""
 
 import pytest
 
-from kbol.markdown import ErrorDeMarca, clausulas, hechos
+from kbol.markdown import MarkupError, clauses, facts
 
 
-def test_clausulas_por_id_no_por_posicion():
-    c = clausulas('<clausula id="C2">\nB\n</clausula>\n\n<clausula id="C1">\nA *md*\n</clausula>\n')
+def test_clauses_by_id_not_by_position():
+    c = clauses('<clause id="C2">\nB\n</clause>\n\n<clause id="C1">\nA *md*\n</clause>\n')
     assert c == {"C2": "B", "C1": "A *md*"}
 
 
 @pytest.mark.parametrize(
-    "cuerpo",
+    "body",
     [
-        '<clausula id="C1">\nx\n</clausula>\n<clausula id="C1">\ny\n</clausula>',  # repetida
-        '<clausula id="C1">\n<clausula id="C2">\n</clausula>\n</clausula>',  # anidada
-        '<clausula id="C1">\nsin cierre',
-        "</clausula>",
-        '<clausula id="X1">\nx\n</clausula>',  # identificador inválido
-        '  <clausula id="C1">\nx\n</clausula>',  # no está en línea propia
+        '<clause id="C1">\nx\n</clause>\n<clause id="C1">\ny\n</clause>',  # repeated
+        '<clause id="C1">\n<clause id="C2">\n</clause>\n</clause>',  # nested
+        '<clause id="C1">\nno closing',
+        "</clause>",
+        '<clause id="X1">\nx\n</clause>',  # invalid identifier
+        '  <clause id="C1">\nx\n</clause>',  # not on its own line
     ],
 )
-def test_clausulas_mal_formadas(cuerpo):
-    with pytest.raises(ErrorDeMarca):
-        clausulas(cuerpo)
+def test_malformed_clauses(body):
+    with pytest.raises(MarkupError):
+        clauses(body)
 
 
-def test_codigo_y_escapes_no_abren_clausulas():
-    cuerpo = (
-        '```\n<clausula id="C9">\n```\n'
-        "~~~~\n</clausula>\n~~~~\n"
-        '\\<clausula id="C8">\n'
-        '`<clausula id="C7">`\n'
-        '<clausula id="C1">\nA\n</clausula>\n'
+def test_code_and_escapes_do_not_open_clauses():
+    body = (
+        '```\n<clause id="C9">\n```\n'
+        "~~~~\n</clause>\n~~~~\n"
+        '\\<clause id="C8">\n'
+        '`<clause id="C7">`\n'
+        '<clause id="C1">\nA\n</clause>\n'
     )
-    assert clausulas(cuerpo) == {"C1": "A"}
+    assert clauses(body) == {"C1": "A"}
 
 
-def test_hechos_en_linea():
-    cuerpo = 'El caudal es <hecho id="H1" evidencia="observado" fuente="s1">5 m3/h a 20 °C</hecho>. Ver <hecho ref="HE-A">la medida</hecho>.'
-    h = hechos(cuerpo)
+def test_inline_facts():
+    body = 'The flow is <fact id="H1" evidence="observed" source="s1">5 m3/h at 20 °C</fact>. See <fact ref="FACT-A">the measurement</fact>.'
+    h = facts(body)
     assert h == [
-        {"id": "H1", "evidencia": "observado", "fuente": "s1", "texto": "5 m3/h a 20 °C"},
-        {"ref": "HE-A", "texto": "la medida"},
+        {"id": "H1", "evidence": "observed", "source": "s1", "text": "5 m3/h at 20 °C"},
+        {"ref": "FACT-A", "text": "the measurement"},
     ]
 
 
 @pytest.mark.parametrize(
-    "cuerpo",
+    "body",
     [
-        '<hecho id="H1" evidencia="observado" fuente="s1">a</hecho><hecho id="H1" evidencia="observado" fuente="s1">b</hecho>',
-        '<hecho id="H1" evidencia="observado">a</hecho>',  # falta fuente
-        '<hecho id="H1" evidencia="observado" fuente="s1">a',  # sin cierre
-        '<hecho ref="HE-A" id="H1">a</hecho>',  # ref y forma en línea a la vez
-        '<hecho id="H1" evidencia="observado" fuente="s1"><hecho ref="HE-A">x</hecho></hecho>',
+        '<fact id="H1" evidence="observed" source="s1">a</fact><fact id="H1" evidence="observed" source="s1">b</fact>',
+        '<fact id="H1" evidence="observed">a</fact>',  # missing source
+        '<fact id="H1" evidence="observed" source="s1">a',  # no closing
+        '<fact ref="FACT-A" id="H1">a</fact>',  # ref and inline shape at once
+        '<fact id="H1" evidence="observed" source="s1"><fact ref="FACT-A">x</fact></fact>',
     ],
 )
-def test_hechos_mal_formados(cuerpo):
-    with pytest.raises(ErrorDeMarca):
-        hechos(cuerpo)
+def test_malformed_facts(body):
+    with pytest.raises(MarkupError):
+        facts(body)
 
 
-def test_hechos_en_codigo_se_ignoran():
-    assert hechos('```\n<hecho id="H1">x</hecho>\n```\n`<hecho id="H2">y</hecho>`') == []
+def test_facts_in_code_are_ignored():
+    assert facts('```\n<fact id="H1">x</fact>\n```\n`<fact id="H2">y</fact>`') == []

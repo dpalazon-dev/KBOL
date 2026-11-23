@@ -1,114 +1,116 @@
 # kbol-di · Document Intelligence
 
-Herramientas de Document Intelligence de KBOL: llevan un documento desde su origen hasta una representación que `kbol citas` sabe comprobar y una carpeta que se puede navegar y relacionar. Nacieron con el primer piloto (normativa: CRA, R. 2025/2392, NIS2 y ENS); desde la 0.2 sirven para un PDF cualquiera y desde la 0.3 para Word, hojas de cálculo, PowerPoint y HTML. Proyecto uv aparte para que Docling y torch no entren en el núcleo ni en las instalaciones. No integra registros ni habilita `ingerir`: produce artefactos en un almacén y los datos para escribir fuentes derivadas.
+KBOL's Document Intelligence tools: they take a document from its origin to a representation that `kbol citations` can check and a folder that can be browsed and related. They were born with the first pilot (regulation: CRA, R. 2025/2392, NIS2 and ENS); since 0.2 they serve any PDF and since 0.3 Word, spreadsheets, PowerPoint and HTML. A separate uv project so that Docling and torch do not enter the core or the installations. It does not integrate records or enable `ingest`: it produces artifacts in a store and the data to write derived sources.
 
-Contrato: los localizadores de `kbol/localizador.py`; el resolutor que los comprueba es `kbol citas`. El procedimiento para incorporar un documento y citarlo está en la skill [incorporar-documento](../../.claude/skills/incorporar-documento/SKILL.md).
+Contract: the locators of `kbol/locator.py`; the resolver that checks them is `kbol citations`. The procedure to add a document and cite it is in the [add-document](../../.claude/skills/add-document/SKILL.md) skill.
 
 ```bash
 cd tools/di
 uv sync                      # docling 2.142.1, exclude-newer 2026-10-24, CPU
 uv run python -m pytest -q
-uv run python -m di incorporar <URL o archivo> --nombre usad   # de principio a fin, con su carpeta
-uv run python -m di localizar <sha256 del JSON de Docling> "<cita literal>"
+uv run python -m di add <URL or file> --name usad   # end to end, with its folder
+uv run python -m di locate <sha256 of the Docling JSON> "<literal quote>"
 ```
 
-| Formato | Procesador | Representación que se cita | Cita | Contraste |
+| Format | Processor | Representation that is cited | Citation | Crosscheck |
 |---|---|---|---|---|
-| PDF con capa de texto | Docling, con las figuras como imagen | Estructura genérica | `pdf-v1:p=…` | pypdf, por página |
-| PowerPoint | Docling | Estructura genérica (una diapositiva por página) | `pdf-v1:p=<diapositiva>` | ninguno |
-| Word, hoja de cálculo | Docling | Su exportación a Markdown | `lines-v1:…` con `representacion_id` | ninguno |
-| HTML | MarkItDown | El Markdown que produce | `lines-v1:…` con `representacion_id` | ninguno |
+| PDF with a text layer | Docling, with figures as images | Generic structure | `pdf-v1:p=…` | pypdf, per page |
+| PowerPoint | Docling | Generic structure (one slide per page) | `pdf-v1:p=<slide>` | none |
+| Word, spreadsheet | Docling | Its Markdown export | `lines-v1:…` with `representation_id` | none |
+| HTML | MarkItDown | The Markdown it produces | `lines-v1:…` with `representation_id` | none |
 
-El formato sale de la extensión del origen. Un origen sin extensión (la URL de un PDF en EUR-Lex) se trata como PDF, como siempre; `--formato pdf|docx|pptx|xlsx|html` lo declara a mano cuando el origen no lo dice o lleva otra extensión.
+The format comes from the origin's extension. An origin without extension (the URL of a PDF on EUR-Lex) is treated as PDF, as always; `--format pdf|docx|pptx|xlsx|html` declares it by hand when the origin does not say or has another extension.
 
-Citar por líneas una representación, y no el original, necesita KBOL 0.10.0 o posterior. Un HTML no tiene estructura ni carpeta: solo su Markdown.
+Citing a representation by lines, and not the original, needs KBOL 0.10.0 or later. An HTML file has no structure or folder: only its Markdown.
 
-## La carpeta del documento
+## The document folder
 
-Con `--nombre`, `incorporar` genera `documentos/<nombre>/` junto al almacén (o en `--destino`); `di proyectar <sha256 de la estructura> --nombre <nombre>` la regenera sin volver a procesar.
+With `--name`, `add` generates `documents/<name>/` next to the store (or in `--destination`); `di project <sha256 of the structure> --name <name>` regenerates it without processing again.
 
 ```
-documentos/usad/
-  usad.pdf                     el original
-  index.md                     qué es el documento y qué hay en la carpeta
-  contenidos/NN-<título>.md    una sección por fichero
-  recursos/tablas/tabla-M.md   cada tabla en Markdown y cada dato con sus cabeceras
-  recursos/figuras/figura-M.*  la imagen y su ficha
-  recursos/bibliografia.md     las entradas de la bibliografía con su clave
+documents/usad/
+  usad.pdf                       the original
+  index.md                       what the document is and what is in the folder
+  contents/NN-<title>.md         one section per file
+  resources/tables/table-M.md    each table in Markdown and each value with its headers
+  resources/figures/figure-M.*   the image and its record
+  resources/bibliography.md      the bibliography entries with their key
 ```
 
-Cada fichero lleva una cabecera YAML de estilo OKF: `id` (`usad#seccion=17`), `type`, `title`, `description`, y lo propio de su tipo. Una sección añade `numero`, `profundidad`, `padre`, `hijos`, `ruta`, `tipo`, `paginas` (o `lineas` en un documento sin páginas), `referencias`, `recursos`, `origen` (las huellas y las unidades de la estructura que cubre) y `generated`. El cuerpo es el texto del documento con marcas XML que no lo alteran: `<pagina n="7"/>`, `<ref clave="17">[17]</ref>`, `<recurso tipo="tabla" id="tabla-2" ref="…">leyenda</recurso>`, `<nota>`, `<formula>`.
+Each file has an OKF-style YAML header: `id` (`usad#section=17`), `type`, `title`, `description`, and what is specific to its type. A section adds `number`, `depth`, `parent`, `children`, `path`, `part_type`, `pages` (or `lines` in a document without pages), `references`, `resources`, `origin` (the fingerprints and the units of the structure it covers) and `generated`. The body is the text of the document with XML marks that do not alter it: `<page n="7"/>`, `<ref key="17">[17]</ref>`, `<resource type="table" id="table-2" ref="…">caption</resource>`, `<note>`, `<formula>`.
 
-La carpeta es una vista generada, no conocimiento registrado: sale del mismo cálculo que la estructura, se regenera entera y no se edita a mano (si la carpeta de destino existe y no la generó esta herramienta, no la toca). Las citas se escriben contra la estructura o el Markdown, con la página o las líneas que dice cada fichero. Como contiene una copia del documento, va fuera del repositorio.
+The folder is a generated view, not registered knowledge: it comes from the same computation as the structure, is regenerated whole and is not edited by hand (if the destination folder exists and this tool did not generate it, it is left untouched). Citations are written against the structure or the Markdown, with the page or lines each file states. Since it contains a copy of the document, it goes outside the repository.
 
-Las órdenes sueltas, que `incorporar` encadena y que el flujo de normas usa una a una:
+The standalone commands, which `add` chains and the regulation flow uses one by one:
 
 ```bash
-uv run python -m di capturar <URL o archivo> --medio application/pdf
-uv run python -m di procesar <sha256 del original> [--formato .pdf|.docx|.pptx|.xlsx|.html]
-uv run python -m di estructura <sha256 del JSON de Docling> --original <sha256> [--perfil norma [--ordenar] | --perfil generica [--sin-corregir]]
-uv run python -m di fidelidad <sha256 de la estructura> --original <sha256> [--editor <sha256> --tipo eurlex|boe]
+uv run python -m di capture <URL or file> --media-type application/pdf
+uv run python -m di process <sha256 of the original> [--format .pdf|.docx|.pptx|.xlsx|.html]
+uv run python -m di structure <sha256 of the Docling JSON> --original <sha256> [--profile norm [--reorder] | --profile generic [--no-correct]]
+uv run python -m di fidelity <sha256 of the structure> --original <sha256> [--editor <sha256> --type eurlex|boe]
 ```
 
-El almacén es `KBOL_ALMACEN` o `$KBOL_ESTADO/<repositorio>/almacen`, donde el repositorio es el nombre del estado local de la instalación y se da en `KBOL_REPOSITORIO`; sin esa variable vale `predeterminado` (por defecto, `~/.kbol/predeterminado/almacen`). Guarda `sha256/<huella>` para cada objeto (nunca se sobrescribe) y `meta/<huella>.json` con sus orígenes y la fecha de la primera captura.
+The store is `KBOL_STORE` or `$KBOL_STATE/<repo>/store`, where the repository is the name of the installation's local state and is given in `KBOL_REPOSITORY`; without that variable it is `default` (by default, `~/.kbol/default/store`). It keeps `sha256/<fingerprint>` for each object (never overwritten) and `meta/<fingerprint>.json` with its origins and the date of the first capture.
 
-## Dos perfiles de estructura
+## Two structure profiles
 
-Los dos producen `estructura-v1`, la representación que lee el resolutor. Cambia cómo se agrupa el documento y, con ello, cómo se cita.
+Both produce `structure-v1`, the representation the resolver reads: `profile`, `original_sha256`, `pages` (`p`, `width`, `height`) and `units`, each with `key`, `level`, `pages`, `regions` (`p`, `r`) and `text`. What changes is how the document is grouped and, with it, how it is cited.
 
-| | `norma` | `generica` |
+| | `norm` | `generic` |
 |---|---|---|
-| Para | Redacción normativa de la UE y del BOE | Cualquier otro PDF: informe, artículo, manual, contrato |
-| Unidades | Considerando, artículo, apartado, punto, letra, anexo… (`norma-v1`) | Sección por página (`seccion=n;pagina=p`), tabla y figura con leyenda |
-| Cita | Lógica y física: `norma-v1:art=14;ap=2 @ pdf-v1:p=37;r=…` | Solo física: `pdf-v1:p=8;r=…` |
-| Fidelidad | Por unidad contra el texto del editor (EUR-Lex, BOE) | Contraste por página con pypdf |
-| Orden de lectura | El de Docling; `--ordenar` lo corrige | Corregido, junto con rótulos y flotantes; `--sin-corregir` deja lo que da Docling |
+| For | EU and BOE regulatory drafting | Any other PDF: report, paper, manual, contract |
+| Units | Recital, article, paragraph, point, letter, annex… (`norm-v1`) | Section per page (`section=n;page=p`), table and figure with caption |
+| Citation | Logical and physical: `norm-v1:art=14;ap=2 @ pdf-v1:p=37;r=…` | Physical only: `pdf-v1:p=8;r=…` |
+| Fidelity | Per unit against the publisher's text (EUR-Lex, BOE) | Per-page crosscheck with pypdf |
+| Reading order | Docling's; `--reorder` corrects it | Corrected, together with labels and floats; `--no-correct` keeps what Docling gives |
 
-Desde la 0.2 del segmentador, cada unidad del perfil genérico lleva además su contexto en el documento, sin interpretar lo que dice:
+The `norm-v1` keys (`cons`, `anx`, `parte`, `cap`, `sec`, `art`, `ap`, `pto`, `let`, `num`) are those of the locator, and the `norm` profile reads the Spanish text of EUR-Lex and the BOE (`Artículo`, `ANEXO`, `Parte`, `Clase`, `CAPÍTULO`); fidelity looks for Spanish negations, exceptions and dates.
 
-| Campo | En | Qué es |
+Since segmenter 0.2, each unit of the generic profile also carries its context in the document, without interpreting what it says:
+
+| Field | In | What it is |
 |---|---|---|
-| `numero`, `profundidad`, `padre` | sección | Numeración («5.3»), nivel y clave de la sección que la contiene, sacados de la numeración del título |
-| `ruta` | sección, tabla, figura | Títulos desde la raíz: `["5 Experiments and results", "5.3 Training time"]` |
-| `tipo` | sección, tabla, figura | `resumen`, `introduccion`, `trabajos_relacionados`, `metodo`, `experimentos`, `resultados`, `conclusiones`, `referencias`, `anexo` o `agradecimientos`; una subsección sin tipo propio hereda el de su padre |
-| `referencias` | sección | Claves de la bibliografía que cita ese trozo («17», o «feng 2021» en estilo autor-año) |
-| `leyenda` | tabla, figura | Su pie («Table 2: Performance comparison…») |
-| `celdas` | tabla | Cada dato con su página, fila, columna, las cabeceras de su columna (`["SWaT", "Without", "F1"]`) y la etiqueta de su fila (`["USAD"]`) |
+| `number`, `depth`, `parent` | section | Numbering ("5.3"), level and key of the containing section, taken from the numbering of the heading |
+| `path` | section, table, figure | Headings from the root: `["5 Experiments and results", "5.3 Training time"]` |
+| `part_type` | section, table, figure | `abstract`, `introduction`, `related_work`, `method`, `experiments`, `results`, `conclusions`, `references`, `appendix` or `acknowledgments`; a subsection without a type of its own inherits its parent's. Headings are recognized in English and in Spanish |
+| `references` | section | Bibliography keys that piece cites ("17", or "feng 2021" in author-year style) |
+| `caption` | table, figure | Its caption ("Table 2: Performance comparison…") |
+| `cells` | table | Each value with its page, `row`, `col`, the `headers` of its column (`["SWaT", "Without", "F1"]`) and its `row_label` (`["USAD"]`) |
 
-La estructura trae también `referencias` en la raíz: las entradas de la bibliografía con su clave, texto, páginas y sección. Una cita del texto sin entrada en la bibliografía queda en `avisos`. El `texto` de cada unidad sigue siendo el del PDF: las cabeceras resueltas van aparte para que no se citen como si estuvieran escritas así.
+The structure also carries `references` at the root: the bibliography entries with their key, text, pages and section. A citation in the text without an entry in the bibliography is left in `warnings`. The `text` of each unit is still the PDF's: the resolved headers go apart so they are not cited as if they were written that way.
 
-Las claves del perfil genérico no son un localizador `norma-v1` a propósito: nombran unidades de esta representación y no una división estable del documento. La sección se parte por página para que la página de la cita se compruebe de verdad; un párrafo partido entre dos páginas se resuelve en las dos.
+The keys of the generic profile are deliberately not a `norm-v1` locator: they name units of this representation and not a stable division of the document. The section is split by page so that the page of the citation is really checked; a paragraph split across two pages resolves on both.
 
-Lo que el resolutor comprueba en una cita solo física es la huella del original y de la representación, que la página existe y que la cita literal está en el texto de esa página. La región (`r=`) queda escrita para que una persona encuentre el pasaje, pero `kbol citas` no la contrasta si la cita no lleva parte lógica: una región equivocada en la página correcta se da por buena.
+What the resolver checks in a physical-only citation is the fingerprint of the original and of the representation, that the page exists and that the literal quote is in the text of that page. The region (`r=`) is written so that a person can find the passage, but `kbol citations` does not check it if the citation has no logical part: a wrong region on the right page passes.
 
-## Módulos
+## Modules
 
-| Módulo | Qué hace | Límites |
+| Module | What it does | Limits |
 |---|---|---|
-| `almacen` | Captura por URL o archivo, relee y comprueba la huella; reintento idempotente | Un escritor; sin bloqueo |
-| `procesar` | Docling en CPU, sin OCR, tablas en modo preciso y figuras como imagen a doble resolución; guarda el JSON nativo de DoclingDocument y, para Word y hojas de cálculo, su Markdown; un HTML pasa por MarkItDown | Terminar no prueba fidelidad; un PDF escaneado sale vacío; las cuatro normas del primer piloto se procesaron sin imágenes |
-| `estructura` | Unidades `norma-v1` con páginas, regiones y texto; recupera encabezados que Docling dejó como cabecera, descarta entradas de índice y sustituye el glifo U+0840 que Docling lee en lugar de U+2003 en el BOE, todo declarado en `avisos` | Redacción de la UE y del BOE |
-| `generica` | Unidades por título, página, tabla y figura de cualquier PDF; un rótulo de algoritmo, tabla o figura no abre sección, un título repetido tampoco, y cada tabla o figura va a la sección que la menciona, todo declarado en `avisos` | La sección es la que detecta Docling; sin leyenda numerada, un flotante se queda donde cae |
-| `contexto` | Jerarquía de secciones por su numeración, tipo de parte por el título, celdas de tabla con cabeceras resueltas a través de las combinadas, y llamadas a la bibliografía numéricas o de autor y año | Docling da a todos los títulos el mismo nivel: sin numeración no hay jerarquía; el tipo se deduce del título y no del contenido; un apartado «1.» tras «3.3» se toma por apartado y se avisa; corchetes con números mayores que la bibliografía no cuentan como cita |
-| `orden` | Orden de lectura por página a partir de la posición de los bloques: bandas, dos columnas y renglones; deja sin tocar la página que no entiende y lo dice | Dos columnas como mucho; no lee el contenido |
-| `editor` | Unidades según el HTML de EUR-Lex y el XML del BOE, sin notas al pie | Los puntos internos de un anexo de EUR-Lex se miden al nivel del anexo |
-| `fidelidad` | Por unidad de norma: existencia y unicidad, recuerdo de palabras, fechas, negaciones y excepciones; documento: recuerdo y palabras partidas frente a pypdf | Las tablas se miden por su texto, no celda a celda |
-| `contraste` | Sin editor: por página, qué parte de lo que lee pypdf está en la estructura y al revés, y las cifras una a una; declara las páginas sin capa de texto | Dos lecturas de la misma capa de texto comparten sus errores; no mide orden ni sentido; no detecta un texto colocado en la página contigua a la suya |
-| `localizar` | Página y región de una cita literal, para escribir su `pdf-v1` | No busca en notas al pie; recorre el orden de Docling, así que una cita a caballo entre dos bloques que `orden` recoloca puede no encontrarse |
-| `incorporar` | Encadena captura, procesado, estructura genérica, contraste (solo PDF) y, con `--nombre`, la carpeta; devuelve los datos de las fichas y qué revisar | No escribe registros ni juzga la calidad |
-| `proyectar` | Carpeta navegable del documento desde su estructura: índice, una sección por fichero con su contexto, tablas, figuras y bibliografía | Vista regenerable; no borra una carpeta que no generó |
+| `store` | Capture by URL or file, rereads and checks the fingerprint; idempotent retry | One writer; no locking |
+| `process` | Docling on CPU, without OCR, tables in accurate mode and figures as images at double resolution; saves the native DoclingDocument JSON and, for Word and spreadsheets, its Markdown; an HTML file goes through MarkItDown | Finishing does not prove fidelity; a scanned PDF comes out empty; the four regulations of the first pilot were processed without images |
+| `structure` | `norm-v1` units with pages, regions and text; recovers headings that Docling left as page headers, drops table-of-contents entries and replaces the U+0840 glyph that Docling reads instead of U+2003 in the BOE, all declared in `warnings` | EU and BOE drafting |
+| `generic` | Units by heading, page, table and figure of any PDF; an algorithm, table or figure label does not open a section, nor does a repeated heading, and each table or figure goes to the section that mentions it, all declared in `warnings` | The section is the one Docling detects; without a numbered caption, a float stays where it lands |
+| `context` | Section hierarchy by numbering, part type by heading, table cells with headers resolved through merged cells, and numeric or author-year bibliography calls | Docling gives all headings the same level: without numbering there is no hierarchy; the type is inferred from the heading and not from the content; an item "1." after "3.3" is taken as an item and warned; brackets with numbers greater than the bibliography do not count as citations |
+| `order` | Per-page reading order from the position of the blocks: bands, two columns and lines; leaves a page it does not understand untouched and says so | Two columns at most; does not read the content |
+| `editor` | Units according to the EUR-Lex HTML and the BOE XML, without footnotes | The inner points of a EUR-Lex annex are measured at the level of the annex |
+| `fidelity` | Per norm unit: existence and uniqueness, word recall, dates, negations and exceptions; document: recall and split words against pypdf | Tables are measured by their text, not cell by cell |
+| `crosscheck` | Without an editor: per page, how much of what pypdf reads is in the structure and vice versa, and numbers one by one; declares pages without a text layer | Two readings of the same text layer share its errors; does not measure order or meaning; does not detect a text placed on the page next to its own |
+| `locate` | Page and region of a literal quote, to write its `pdf-v1` | Does not search footnotes; walks Docling's order, so a quote straddling two blocks that `order` moves may not be found |
+| `add` | Chains capture, processing, generic structure, crosscheck (PDF only) and, with `--name`, the folder; returns the data for the source records and what to review | Does not write records or judge quality |
+| `project` | Navigable folder of the document from its structure: index, one section per file with its context, tables, figures and bibliography | Regenerable view; does not delete a folder it did not generate |
 
-## Lo medido
+## What was measured
 
-Corregir el orden de lectura en las cuatro normas del primer piloto, medido con `fidelidad` contra el texto del editor (10 nov 2026, DoclingDocument de Docling 2.142.1 ya en el almacén). Sin `--ordenar`, la estructura sale byte a byte igual que la registrada entonces.
+Correcting the reading order in the four regulations of the first pilot, measured with `fidelity` against the publisher's text (10 Nov 2026, DoclingDocument from Docling 2.142.1 already in the store). Without `--reorder`, the units came out byte for byte the same as those registered then.
 
-| Norma | Unidades únicas | Recuerdo medio | Orden de artículos | Páginas recolocadas |
+| Regulation | Unique units | Mean recall | Article order | Pages reordered |
 |---|---|---|---|---|
-| CRA | 600 → 607 de 607 | 0,9982 → 0,9997 | 0,9859 → 1,0 | 3 de 81 |
-| NIS2 | 603 de 603, igual | 0,9999, igual | 1,0, igual | 3 de 73 |
-| R. 2025/2392 | 16 de 16, igual | 1,0, igual | 1,0, igual | 1 de 11 |
-| ENS | 178 → 179 de 187 | 0,9788 → 0,9929 | 0,9524, igual | 81 de 90 |
+| CRA | 600 → 607 of 607 | 0.9982 → 0.9997 | 0.9859 → 1.0 | 3 of 81 |
+| NIS2 | 603 of 603, same | 0.9999, same | 1.0, same | 3 of 73 |
+| R. 2025/2392 | 16 of 16, same | 1.0, same | 1.0, same | 1 of 11 |
+| ENS | 178 → 179 of 187 | 0.9788 → 0.9929 | 0.9524, same | 81 of 90 |
 
-Ninguna métrica empeora. `--ordenar` no es el valor por defecto en el perfil de normas porque cambiaría las derivaciones que ya citan los hechos registrados: usarlo produce una derivación nueva, y sustituir la anterior es una decisión de quien mantiene esos registros. El artefacto sin `--ordenar` es el mismo, pero su ficha no: `codigo_sha256` cambia porque `estructura.py` ha cambiado, y gana el campo `configuracion`.
+No metric gets worse. `--reorder` is not the default in the norm profile because it would change the derivations that the registered facts already cite: using it produces a new derivation, and replacing the previous one is a decision for whoever maintains those records. The artifact without `--reorder` keeps its units, but not its record: `code_sha256` changes whenever `structure.py` changes. Since 0.13 the structure is written in English (`structure-v1`, `units`, `key`…), so a structure produced now is a new artifact with a new fingerprint, even with the same units as one registered under 0.12 (`estructura-v1`).
 
-El perfil genérico se ha probado de principio a fin, con el Docling fijado, en un artículo a dos columnas de ACM (11 páginas, 110 s en CPU): secciones en su orden, citas resueltas en su página y rotas en la contigua, y contraste con pypdf de 0,996 de recuerdo y 0,998 de respaldo, con la página de fórmulas como único aviso. La segmentación y el orden se han probado además sobre DoclingDocument de otra versión de Docling (2.150, con OCR) de tres artículos más: dos columnas de IEEE, una columna de Springer y una revisión de 42 páginas. Informes con diseño gráfico, diapositivas, formularios y cualquier maquetación a tres columnas siguen sin probar.
+The generic profile was tested end to end, with the pinned Docling, on a two-column ACM paper (11 pages, 110 s on CPU): sections in their order, citations resolved on their page and broken on the next one, and a pypdf crosscheck of 0.996 recall and 0.998 support, with the formula page as the only warning. Segmentation and ordering were also tested on DoclingDocuments from another Docling version (2.150, with OCR) of three more papers: two-column IEEE, single-column Springer and a 42-page review. Reports with graphic design, slides, forms and any three-column layout remain untested.

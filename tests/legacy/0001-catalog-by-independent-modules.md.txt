@@ -1,0 +1,68 @@
+---
+type: Decision
+id: ADR-0001
+title: The library catalog is split into independent modules for search, loans and notices
+class: record
+status: stable
+state: "Accepted; partially superseded by ADR-0010"
+implementation: complete
+date: "2026-05-09"
+scope: product
+branch: Catalog
+adopted_by: Project owner
+answers_to: "—"
+supersedes_to: "—"
+affects: "src/catalog/search.py; src/catalog/loans.py; src/catalog/notices.py; docs/contracts/catalog.md"
+---
+
+# The library catalog is split into independent modules for search, loans and notices
+
+* Status: accepted, partially superseded by ADR-0010
+* Date: 2026-05-09
+* Deciders: Project owner (scope `product`)
+
+Record invented for the KBOL tests: the Faro project does not exist.
+
+## Context and Problem Statement
+
+The Faro catalog is a single module that searches books, manages loans and sends return notices. A change in the notices forces a deployment of the search, and a failure of the mail server leaves the whole library without loans.
+
+## Decision Drivers
+
+* Deploy each part without touching the others.
+* A failure of the notices must not prevent lending.
+* Keep a single data contract for the books.
+
+## Considered Options
+
+### Option A — Three modules with a common contract
+
+Search, loans and notices are separated and share the book schema.
+
+### Option B — One module with internal queues
+
+The catalog stays as one and the notices move to a queue.
+
+### Option C — One service per reading room
+
+Each reading room has its own catalog.
+
+## Decision Outcome
+
+Chosen option: "A", because it is the only one that separates failures without duplicating the book schema.
+
+### Positive Consequences
+
+* The notices are deployed without stopping the loans.
+
+### Negative Consequences
+
+* There are three deployments to coordinate.
+
+## Validation
+
+Contract tests between the three modules with a sample catalog of twenty books.
+
+## More Information
+
+ADR-0010 later supersedes the notices part: they move to an external service. The split between search and loans remains in force.

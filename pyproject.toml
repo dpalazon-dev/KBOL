@@ -1,6 +1,6 @@
 [project]
 name = "kbol"
-version = "0.12.0"
+version = "0.13.0"
 description = "Project decisions you can check: which rule is in force on any date, who approved it and where each citation comes from"
 readme = "README.md"
 authors = [{ name = "David Palazón" }]

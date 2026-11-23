@@ -1,1 +1,1 @@
-"""Piloto de Document Intelligence de KBOL: captura, procesado, estructura de normas y fidelidad."""
+"""KBOL Document Intelligence: capture, processing, structure, fidelity and navigable folder of each document."""

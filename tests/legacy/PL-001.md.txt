@@ -1,0 +1,47 @@
+---
+type: Plan
+id: PL-001
+title: "Improvement of the Faro catalog"
+description: "Improves the catalog in phases: separate modules, reliable notices, personal data, purge of old copies and continuous verification."
+class: record
+status: draft
+state: In progress
+kind: Implementation
+scope: product
+branch: Catalog
+date: "2026-10-28"
+approved_by: "Owner: H1 and H6 on 26 Oct 2026; the whole plan on 28 Oct 2026"
+origin: "Catalog review, 26 Oct 2026"
+relies_on: ["ADR-0019"]
+depends_on: "—"
+---
+
+# PL-001 · Improvement of the Faro catalog
+
+Record invented for the KBOL tests: the Faro project does not exist.
+
+## Why
+
+The review of 26 Oct 2026 found failures in the notices and in the handling of personal data.
+
+## Goal
+
+A catalog with separate modules and no personal data outside the reader's card.
+
+## Scope
+
+Search, loans and notices. Out of scope: the public website.
+
+## Closing criterion
+
+All milestones done and the suite green.
+
+## Milestones
+
+* PL-001-H3 · Personal data in the notices
+* PL-001-H5 · Purge of old copies
+* PL-001-H6 · Continuous verification
+
+## Risks
+
+* The purge may delete copies someone still uses.

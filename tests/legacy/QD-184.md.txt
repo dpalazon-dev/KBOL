@@ -1,0 +1,20 @@
+---
+type: Question
+id: QD-184
+title: "IDs repeated across sessions: how do we stop two sessions from giving the same ID to different records?"
+class: record
+status: deprecated
+kind: Decision
+options: "a) One working copy per session and a checker warning against main · b) Only the rule of one copy per session"
+unblocks: "Several people working at the same time without losing records"
+answered_by: Owner
+scope: system
+branch: System
+depends_on: "—"
+state: Resolved (ADR-0063)
+origin: "Session of 30 Oct 2026: two people in the same working copy"
+resolved_by: ADR-0063
+evidence: ["30 Oct 2026: one question overwrote another with the same ID", "the lost question was recovered with another ID"]
+---
+
+# QD-184 · IDs repeated across sessions: how do we stop two sessions from giving the same ID to different records?

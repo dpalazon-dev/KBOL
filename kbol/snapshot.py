@@ -1,33 +1,34 @@
-"""Carga de un snapshot: los registros del perfil KB-DPP de una carpeta, en una revisión de git o en el disco.
+"""Loading a snapshot: the KB-DPP profile records of a folder, at a git revision or on disk.
 
-Solo lee. Los índices generados y los archivos legibles cuyo `type` no es del perfil (formato heredado, fijos) se
-omiten y se cuentan. Un archivo ilegible (cabecera ausente o YAML inválido, texto que no es UTF-8) o un registro
-inválido no entra y deja la carga parcial: podría ser un registro, así que la consulta no se presenta como completa.
-Un ID repetido excluye todas sus copias y bloquea la carga, porque elegir una dependería del orden de los archivos.
-Sobre lo cargado se aplican VAL-02 y VAL-07 (`referencias.validar_snapshot`).
+Read only. Generated indexes and readable files whose `type` is not in the profile (legacy format, fixed) are
+omitted and counted. An unreadable file (missing header or invalid YAML, text that is not UTF-8) or an invalid
+record does not enter and leaves the load partial: it could be a record, so the query is not presented as complete.
+A repeated ID excludes all its copies and blocks the load, because choosing one would depend on the order of files.
+VAL-02 and VAL-07 (`references.validate_snapshot`) are applied to what was loaded.
 
-Con `heredados=True`, los registros del formato heredado se leen aparte, como fichas de la migración en
-seco (`snapshot.heredados`): sirven para nombrarlos en las consultas durante la transición, nunca como normativos.
-Un ID heredado que repite uno del perfil, u otro heredado, bloquea la carga como cualquier ID repetido; un registro
-heredado (con `id` o con nombre de registro) sin un ID de forma heredada (`ADR-NNNN`, `QD-nnn`…) no se omite: deja
-la carga parcial. Un documento con `type` de registro pero sin `id` ni nombre de registro se omite. El formato es el
-heredado por defecto salvo que la instalación declare el suyo (`formato_heredado`): entonces lo sustituye, y un ID que no encaja en el patrón de su etiqueta deja la carga parcial.
+With `legacy=True`, records in the legacy format are read separately, as cards from the dry-run migration
+(`snapshot.legacy`): they serve to name them in queries during the transition, never as normative.
+A legacy ID that repeats one from the profile, or another legacy one, blocks the load like any repeated ID; a legacy
+record (with `id` or with a record name) without an ID of legacy shape (`ADR-NNNN`, `QD-nnn`…) is not omitted: it
+leaves the load partial. A document with a record `type` but without `id` or record name is omitted. The format is
+the default legacy one unless the installation declares its own (`legacy_format`): then it replaces it, and an ID
+that does not fit the pattern of its label leaves the load partial.
 """
 
 import os
 import subprocess
 from pathlib import Path
 
-from .core import ErrorDeFormato, parse
-from .migracion import POR_DEFECTO, inspeccionar
-from .modelo import TIPOS
-from .proyeccion import Snapshot
-from .referencias import validar_snapshot
-from .schema import validar
+from .core import FormatError, parse
+from .migration import DEFAULT, inspect
+from .model import TYPES
+from .projection import Snapshot
+from .references import validate_snapshot
+from .schema import validate
 
-BLOQUEANTES = {"CONFLICTO_NORMATIVO", "ESQUEMA_INVALIDO"}
-# Variables que git necesita para funcionar; nada más se hereda (ni tokens ni GIT_* del entorno).
-_ENTORNO = (
+BLOCKING = {"NORMATIVE_CONFLICT", "INVALID_SCHEMA"}
+# Variables git needs to work; nothing else is inherited (neither tokens nor GIT_* from the environment).
+_ENVIRONMENT = (
     "PATH",
     "PATHEXT",
     "SYSTEMROOT",
@@ -49,150 +50,150 @@ _ENTORNO = (
 )
 
 
-def entorno_git():
-    """Entorno mínimo para procesos git: sin `KB_GITHUB_TOKEN` ni variables `GIT_*` heredadas."""
-    return {k: v for k, v in os.environ.items() if k.upper() in _ENTORNO}
+def git_environment():
+    """Minimal environment for git processes: without `KB_GITHUB_TOKEN` or inherited `GIT_*` variables."""
+    return {k: v for k, v in os.environ.items() if k.upper() in _ENVIRONMENT}
 
 
-def _git(raiz, *args):
-    comando = ["git", "--literal-pathspecs", "-C", str(raiz), *args]
-    return subprocess.run(comando, capture_output=True, check=True, env=entorno_git()).stdout
+def _git(root, *args):
+    command = ["git", "--literal-pathspecs", "-C", str(root), *args]
+    return subprocess.run(command, capture_output=True, check=True, env=git_environment()).stdout
 
 
-def carpetas_de(carpeta):
-    """Las carpetas de una instalación como tupla: una, como texto, o varias, como lista (la primera, la política)."""
-    if isinstance(carpeta, os.PathLike):
-        carpeta = os.fspath(carpeta)
-    return (carpeta,) if isinstance(carpeta, str) else tuple(os.fspath(c) for c in carpeta)
+def folders_of(folder):
+    """The folders of an installation as a tuple: one, as text, or several, as a list (the first one, the policy)."""
+    if isinstance(folder, os.PathLike):
+        folder = os.fspath(folder)
+    return (folder,) if isinstance(folder, str) else tuple(os.fspath(c) for c in folder)
 
 
-def _archivos_git(raiz, revision, carpeta):
-    rutas = []
-    for c in carpetas_de(carpeta):
-        salida = _git(raiz, "ls-tree", "-r", "-z", "--name-only", "--full-name", "--end-of-options", revision, "--", c)
-        propias = [r for r in salida.decode("utf-8").split("\0") if r]
-        if not propias:
-            raise FileNotFoundError(f"{c} no existe o está vacía en {revision}")
-        rutas += propias
-    for ruta in sorted({p for p in rutas if p.endswith(".md")}):
-        yield ruta, _git(raiz, "show", f"{revision}:{ruta}")
+def _git_files(root, revision, folder):
+    paths = []
+    for c in folders_of(folder):
+        output = _git(root, "ls-tree", "-r", "-z", "--name-only", "--full-name", "--end-of-options", revision, "--", c)
+        own = [r for r in output.decode("utf-8").split("\0") if r]
+        if not own:
+            raise FileNotFoundError(f"{c} does not exist or is empty at {revision}")
+        paths += own
+    for path in sorted({p for p in paths if p.endswith(".md")}):
+        yield path, _git(root, "show", f"{revision}:{path}")
 
 
-def _archivos_disco(raiz, carpeta):
-    rutas = set()
-    for c in carpetas_de(carpeta):
-        base = Path(raiz) / c
+def _disk_files(root, folder):
+    paths = set()
+    for c in folders_of(folder):
+        base = Path(root) / c
         if not base.is_dir():
-            raise FileNotFoundError(f"{base} no existe")
-        rutas |= set(base.rglob("*.md"))
-    for p in sorted(rutas):
-        yield p.relative_to(raiz).as_posix(), p.read_bytes()
+            raise FileNotFoundError(f"{base} does not exist")
+        paths |= set(base.rglob("*.md"))
+    for p in sorted(paths):
+        yield p.relative_to(root).as_posix(), p.read_bytes()
 
 
-def _ficha(informe, etiqueta, formato):
-    """La ficha de un registro heredado, desde el informe de la migración en seco; None si no es un registro."""
-    if informe.get("resultado") != "propuesto" or not formato.id_valido(etiqueta, informe.get("id")):
+def _card(report, label, format):
+    """The card of a legacy record, from the dry-run migration report; None if it is not a record."""
+    if report.get("result") != "proposed" or not format.valid_id(label, report.get("id")):
         return None
-    campos = (
+    fields = (
         "id",
-        "tipo",
-        "ruta",
-        "estado_heredado",
-        "estado_propuesto",
-        "ambiguedades",
-        "relaciones_propuestas",
-        "autoridad_heredada",
+        "type",
+        "path",
+        "legacy_state",
+        "proposed_state",
+        "ambiguities",
+        "proposed_relations",
+        "inherited_authority",
     )
-    return {**{c: informe.get(c) for c in campos}, "requiere_revision": bool(informe.get("requiere_revision"))}
+    return {**{c: report.get(c) for c in fields}, "requires_review": bool(report.get("requires_review"))}
 
 
-def cargar(raiz, carpeta=".", revision=None, modo="canonico", heredados=False, formato=None):
-    """(Snapshot, cobertura). Sin `revision` lee el disco y lo declara: no es una revisión canónica.
+def load(root, folder=".", revision=None, mode="canonical", legacy=False, format=None):
+    """(Snapshot, coverage). Without `revision` it reads the disk and says so: it is not a canonical revision.
 
-    `modo` es el de validación de cada registro: `canonico` para una revisión integrada, `propuesta` para el árbol
-    de una propuesta, cuyos registros nuevos aún no tienen eventos.
+    `mode` is the validation mode of each record: `canonical` for an integrated revision, `proposal` for the tree
+    of a proposal, whose new records do not have events yet.
 
-    `formato` es el formato heredado que declara la instalación (`migracion.formato_de`); None, `migracion.POR_DEFECTO`.
+    `format` is the legacy format the installation declares (`migration.format_of`); None, `migration.DEFAULT`.
 
-    `cobertura["estado"]` es `completo`, `parcial` o `bloqueado`.
+    `coverage["state"]` is `complete`, `partial` or `blocked`.
     """
-    formato = formato or POR_DEFECTO
-    archivos = _archivos_git(raiz, revision, carpeta) if revision else _archivos_disco(raiz, carpeta)
-    leidos, rutas_por_id = {}, {}
-    cobertura = {
-        "estado": "completo",
-        "leidos": 0,
-        "omitidos": 0,
-        "heredados": 0,
-        "invalidos": [],
-        "hallazgos": [],
-        "advertencias": [],
+    format = format or DEFAULT
+    files = _git_files(root, revision, folder) if revision else _disk_files(root, folder)
+    read, paths_by_id = {}, {}
+    coverage = {
+        "state": "complete",
+        "read": 0,
+        "omitted": 0,
+        "legacy": 0,
+        "invalid": [],
+        "findings": [],
+        "warnings": [],
     }
-    fichas = {}
-    for ruta, contenido in archivos:
-        if Path(ruta).name == "index.md":
-            cobertura["omitidos"] += 1  # vista generada, no registro
+    cards = {}
+    for path, content in files:
+        if Path(path).name == "index.md":
+            coverage["omitted"] += 1  # generated view, not a record
             continue
         try:
-            meta, cuerpo = parse(contenido.decode("utf-8"))
+            meta, body = parse(content.decode("utf-8"))
         except UnicodeDecodeError:
-            cobertura["invalidos"].append({"ruta": ruta, "motivo": "no es UTF-8"})
+            coverage["invalid"].append({"path": path, "reason": "not UTF-8"})
             continue
-        except ErrorDeFormato as exc:
-            # Un archivo ilegible podría ser un registro: su ausencia no es una ausencia legítima.
-            cobertura["invalidos"].append({"ruta": ruta, "motivo": f"cabecera ilegible: {exc}"})
+        except FormatError as exc:
+            # An unreadable file could be a record: its absence is not a legitimate absence.
+            coverage["invalid"].append({"path": path, "reason": f"unreadable header: {exc}"})
             continue
-        if meta.get("type") not in TIPOS:
-            etiqueta = meta.get("type")
-            if heredados and etiqueta in formato.tipos and ("id" in meta or formato.es_registro(ruta)):
-                informe = inspeccionar(contenido.decode("utf-8"), ruta, revision or "disco", formato)
-                ficha = _ficha(informe, etiqueta, formato)
-                if ficha is None:
-                    # Un registro heredado sin ID válido no se omite: podría ser cualquiera de ellos.
-                    motivo = f"registro heredado sin id válido: {meta.get('id')!r}"
-                    cobertura["invalidos"].append({"ruta": ruta, "motivo": motivo})
+        if meta.get("type") not in TYPES:
+            label = meta.get("type")
+            if legacy and label in format.types and ("id" in meta or format.is_record(path)):
+                report = inspect(content.decode("utf-8"), path, revision or "disk", format)
+                card = _card(report, label, format)
+                if card is None:
+                    # A legacy record without a valid ID is not omitted: it could be any of them.
+                    reason = f"legacy record without a valid id: {meta.get('id')!r}"
+                    coverage["invalid"].append({"path": path, "reason": reason})
                     continue
-                rutas_por_id.setdefault(ficha["id"], []).append(ruta)
-                fichas.setdefault(ficha["id"], ficha)
+                paths_by_id.setdefault(card["id"], []).append(path)
+                cards.setdefault(card["id"], card)
                 continue
-            cobertura["omitidos"] += 1
+            coverage["omitted"] += 1
             continue
-        errores = [h for h in validar(meta, cuerpo, modo=modo) if h["severidad"] == "error"]
-        if errores:
-            cobertura["invalidos"].append({"ruta": ruta, "motivo": "; ".join(e["mensaje"] for e in errores[:3])})
+        errors = [h for h in validate(meta, body, mode=mode) if h["severity"] == "error"]
+        if errors:
+            coverage["invalid"].append({"path": path, "reason": "; ".join(e["message"] for e in errors[:3])})
             continue
-        rutas_por_id.setdefault(meta["id"], []).append(ruta)
-        leidos.setdefault(meta["id"], (meta, cuerpo, ruta))
-    registros, cuerpos, ruta_de, heredados_ok = {}, {}, {}, {}
-    for ident, copias in rutas_por_id.items():
-        if len(copias) > 1:
-            cobertura["hallazgos"].append(
+        paths_by_id.setdefault(meta["id"], []).append(path)
+        read.setdefault(meta["id"], (meta, body, path))
+    records, bodies, path_of, legacy_ok = {}, {}, {}, {}
+    for ident, copies in paths_by_id.items():
+        if len(copies) > 1:
+            coverage["findings"].append(
                 {
-                    "codigo": "ESQUEMA_INVALIDO",
-                    "ruta": ident,
-                    "mensaje": f"ID repetido en {copias}" + (" (formato heredado)" if ident in fichas else ""),
-                    "severidad": "error",
+                    "code": "INVALID_SCHEMA",
+                    "path": ident,
+                    "message": f"ID repeated in {copies}" + (" (legacy format)" if ident in cards else ""),
+                    "severity": "error",
                 }
             )
             continue
-        if ident in fichas:
-            heredados_ok[ident] = fichas[ident]
+        if ident in cards:
+            legacy_ok[ident] = cards[ident]
         else:
-            registros[ident], cuerpos[ident], ruta_de[ident] = leidos[ident]
-    snapshot = Snapshot(registros, revision or "disco", cuerpos, ruta_de, heredados_ok)
-    cobertura["leidos"] = len(registros)
-    cobertura["heredados"] = len(heredados_ok)
-    if heredados_ok:
-        cobertura["advertencias"].append(
-            f"{len(heredados_ok)} registros en formato heredado: se leen como importados sin historial admitido "
-            "y no rigen"
+            records[ident], bodies[ident], path_of[ident] = read[ident]
+    snapshot = Snapshot(records, revision or "disk", bodies, path_of, legacy_ok)
+    coverage["read"] = len(records)
+    coverage["legacy"] = len(legacy_ok)
+    if legacy_ok:
+        coverage["warnings"].append(
+            f"{len(legacy_ok)} records in legacy format: they are read as imported without an admitted history "
+            "and are not in force"
         )
-    cobertura["hallazgos"] += validar_snapshot(snapshot)
-    errores = [h for h in cobertura["hallazgos"] if h["severidad"] == "error"]
-    if any(h["codigo"] in BLOQUEANTES for h in errores):
-        cobertura["estado"] = "bloqueado"
-    elif errores or cobertura["invalidos"]:
-        cobertura["estado"] = "parcial"
+    coverage["findings"] += validate_snapshot(snapshot)
+    errors = [h for h in coverage["findings"] if h["severity"] == "error"]
+    if any(h["code"] in BLOCKING for h in errors):
+        coverage["state"] = "blocked"
+    elif errors or coverage["invalid"]:
+        coverage["state"] = "partial"
     if revision is None:
-        cobertura["advertencias"].append("lectura del disco: puede incluir cambios sin integrar")
-    return snapshot, cobertura
+        coverage["warnings"].append("read from disk: may include changes not integrated")
+    return snapshot, coverage

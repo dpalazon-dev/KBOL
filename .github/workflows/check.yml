@@ -1,0 +1,32 @@
+# Continuous integration: the same local check (tools/check.py), on Linux.
+# Without the tests of tools/di (Docling pulls in torch and models): they only run in the full local check.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Git identity for the tests
+        run: |
+          git config --global user.name "kbol-ci"
+          git config --global user.email "kbol-ci@localhost"
+      - uses: astral-sh/setup-uv@v6
+      - name: Local check without tools/di
+        run: uv run python tools/check.py --no-di
+      - name: Quick start end to end
+        run: KBOL="uv run --project $GITHUB_WORKSPACE kbol" bash examples/quickstart.sh "$RUNNER_TEMP/kbol-demo"
