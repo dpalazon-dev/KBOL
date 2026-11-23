@@ -4,6 +4,12 @@ Las versiones siguen la forma `MAYOR.MENOR.PARCHE`. Mientras KBOL esté en 0.x, 
 
 0.12.0 es la primera versión publicada en este repositorio. Las anteriores se desarrollaron en un repositorio privado: sus notas se conservan como historia del proyecto, pero no tienen etiqueta aquí.
 
+## Sin publicar
+
+- GIF de demostración en los README (`docs/demo.gif`), grabado con salida real por `tools/demo_gif.py`.
+- Prueba rápida en un script, `examples/quickstart.sh`, que la integración continua ejecuta de principio a fin.
+- Badges de integración continua, versión, licencia y Python en los README.
+
 ## 0.12.0 · 23 nov 2026
 
 Primera versión pública.

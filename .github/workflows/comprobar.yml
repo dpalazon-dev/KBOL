@@ -28,3 +28,5 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Comprobación local sin tools/di
         run: uv run python tools/comprobar.py --sin-di
+      - name: Quick start de principio a fin
+        run: KBOL="uv run --project $GITHUB_WORKSPACE kbol" bash examples/quickstart.sh "$RUNNER_TEMP/kbol-demo"

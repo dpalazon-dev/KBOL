@@ -1,17 +1,29 @@
 # KBOL · Knowledge Base Operating Layer
 
+[![CI](https://github.com/dpalazon-dev/KBOL/actions/workflows/comprobar.yml/badge.svg)](https://github.com/dpalazon-dev/KBOL/actions/workflows/comprobar.yml)
+[![Release](https://img.shields.io/github/v/release/dpalazon-dev/KBOL)](https://github.com/dpalazon-dev/KBOL/releases)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+
 **Decisiones de proyecto que se pueden comprobar: qué regla rige en cada fecha, quién la aprobó y de qué página o líneas sale cada cita.**
 
 [Read in English](README.md)
 
 KBOL es una herramienta de línea de órdenes que trabaja sobre registros en Markdown dentro de tu repositorio git: decisiones, preguntas, hechos, hipótesis, planes y fuentes. Cada registro lleva un historial de eventos. A partir de él, KBOL reconstruye qué rige en cualquier fecha, no deja integrar un cambio sin la aprobación que pide tu política y comprueba que cada cita apunta al sitio exacto de su documento original.
 
+![Demostración de KBOL: qué rige, búsqueda por texto y la puerta bloqueando la edición a mano de una decisión aceptada](docs/demo.gif)
+
+## Prueba rápida
+
+Monta un proyecto de prueba con una decisión aprobada y pregunta a KBOL qué rige (hace falta git, bash y Python 3):
+
 ```bash
 uv tool install git+https://github.com/dpalazon-dev/KBOL
-kbol --help
+git clone https://github.com/dpalazon-dev/KBOL && cd KBOL
+bash examples/quickstart.sh /tmp/kbol-demo
 ```
 
-<!-- DEMO-GIF: aquí irá la demostración grabada. -->
+[`examples/quickstart.sh`](examples/quickstart.sh) crea un rol y una persona, arranca la raíz de confianza, propone una decisión, la aprueba, la integra por la puerta y la consulta. Cada paso está explicado en [primeros pasos](docs/primeros-pasos.md).
 
 ## Para qué sirve
 

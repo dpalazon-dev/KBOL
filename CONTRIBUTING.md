@@ -32,6 +32,10 @@ Reglas que la suite hace cumplir y conviene conocer antes de tocar documentació
 - Toda ruta del repositorio citada entre comillas invertidas en los README o en `docs/elecciones.md` tiene que existir.
 - Un README no afirma una capacidad que el código no tenga. Si una función no está acabada, va en sus limitaciones («Qué no hace todavía», «Limitations»).
 
+## Demo
+
+El GIF de los README (`docs/demo.gif`) se dibuja con la salida real de las órdenes: `uv run --with pillow python tools/demo_gif.py`. Regenéralo si cambia lo que muestran `consultar`, `buscar` o `proponer`.
+
 ## Commits
 
 Commits pequeños, cada uno con la comprobación pasando. El mensaje sigue la forma `tipo(ámbito): qué cambia`, en español y en presente, con `feat`, `fix`, `docs`, `chore`, `test` o `refactor`; por ejemplo, `fix(citas): una cita sin contexto no se da por resuelta`. Si el cambio es incompatible para quien consume la CLI, añade su nota en [`docs/cambios.md`](docs/cambios.md) con la plantilla de ese archivo y una entrada en [CHANGELOG.md](CHANGELOG.md).

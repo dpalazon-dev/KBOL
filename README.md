@@ -1,17 +1,36 @@
 # KBOL · Knowledge Base Operating Layer
 
+[![CI](https://github.com/dpalazon-dev/KBOL/actions/workflows/comprobar.yml/badge.svg)](https://github.com/dpalazon-dev/KBOL/actions/workflows/comprobar.yml)
+[![Release](https://img.shields.io/github/v/release/dpalazon-dev/KBOL)](https://github.com/dpalazon-dev/KBOL/releases)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+
 **Project decisions you can check: which rule is in force on any date, who approved it, and which page or lines each citation comes from.**
 
 [Leer en español](README.es.md)
 
 KBOL is a command-line tool that works on Markdown records inside your git repository: decisions, questions, facts, hypotheses, plans and sources. Every record carries an event history. From it, KBOL rebuilds what is in force on any date, refuses to integrate a change without the approval your policy requires, and checks that every citation points to the exact place in its original document.
 
+![KBOL demo: querying what is in force, searching by text, and the gate blocking a hand edit of an accepted decision](docs/demo.gif)
+
+## Quick start
+
+Build a throwaway project with one approved decision and ask KBOL what is in force (needs git, bash and Python 3):
+
 ```bash
 uv tool install git+https://github.com/dpalazon-dev/KBOL
-kbol --help
+git clone https://github.com/dpalazon-dev/KBOL && cd KBOL
+bash examples/quickstart.sh /tmp/kbol-demo
 ```
 
-<!-- DEMO-GIF: the recorded demo goes here. -->
+[`examples/quickstart.sh`](examples/quickstart.sh) creates a role and a person, bootstraps the root of trust, proposes a decision, approves it, integrates it through the gate and queries it:
+
+```text
+[APROBADA] «La base de datos es PostgreSQL»
+  Rige entera a 23 nov 2026.
+  Dice: La base de datos del proyecto es PostgreSQL 16.
+  Aprobación de Ana Pérez, el 23 nov 2026, con estas palabras: «Apruebo que la base de datos sea PostgreSQL» (aprobación declarada, sin autenticar).
+```
 
 ## What it is for
 
@@ -46,14 +65,7 @@ To pin a version, append its tag to the URL (`…/KBOL@vX.Y.Z`). The command is 
 
 ## Getting started
 
-[`docs/primeros-pasos.md`](docs/primeros-pasos.md) (in Spanish) takes an empty repository to an approved, queryable decision in eight steps: a policy with one role and one person, the installation file, the root of trust, the first proposal, its approval and the query. The end result looks like this:
-
-```text
-[APROBADA] «La base de datos es PostgreSQL»
-  Rige entera a 23 nov 2026.
-  Dice: La base de datos del proyecto es PostgreSQL 16.
-  Aprobación de Ana Pérez, el 23 nov 2026, con estas palabras: «Apruebo que la base de datos sea PostgreSQL» (aprobación declarada, sin autenticar).
-```
+[`docs/primeros-pasos.md`](docs/primeros-pasos.md) (in Spanish) takes an empty repository to an approved, queryable decision in eight steps: a policy with one role and one person, the installation file, the root of trust, the first proposal, its approval and the query.
 
 ## Concepts
 
