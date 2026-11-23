@@ -4,7 +4,7 @@ Versions follow the form `MAJOR.MINOR.PATCH`. While KBOL is at 0.x, a minor vers
 
 0.12.0 is the first version published in this repository. Earlier ones were developed in a private repository: their notes are kept as project history, but they have no tag here. Entries before 0.13.0 use the 0.13 names of commands, options and fields; [docs/glossary-es-en.md](docs/glossary-es-en.md) maps them to the Spanish names those versions used.
 
-## 0.13.0 · unreleased
+## 0.13.0 · 23 Nov 2026
 
 Everything in English. Breaking for any 0.12 installation: see the note in [docs/breaking-changes.md](docs/breaking-changes.md).
 
