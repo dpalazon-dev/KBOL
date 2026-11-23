@@ -1,0 +1,30 @@
+# Integración continua: la misma comprobación local (tools/comprobar.py), en Linux.
+# Sin los tests de tools/di (Docling arrastra torch y modelos): siguen solo en la comprobación local completa.
+name: comprobar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comprobar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Identidad de git para los tests
+        run: |
+          git config --global user.name "kbol-ci"
+          git config --global user.email "kbol-ci@localhost"
+      - uses: astral-sh/setup-uv@v6
+      - name: Comprobación local sin tools/di
+        run: uv run python tools/comprobar.py --sin-di

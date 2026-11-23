@@ -1,0 +1,43 @@
+[project]
+name = "kbol"
+version = "0.12.0"
+description = "Project decisions you can check: which rule is in force on any date, who approved it and where each citation comes from"
+readme = "README.md"
+authors = [{ name = "David Palazón" }]
+keywords = ["decisions", "adr", "knowledge-base", "governance", "git", "markdown", "citations", "agents"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Documentation",
+]
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = ["PyYAML>=6.0.2,<7", "jsonschema>=4.23,<5", "markdown-it-py>=3,<5"]
+[project.urls]
+Homepage = "https://github.com/dpalazon-dev/KBOL"
+Issues = "https://github.com/dpalazon-dev/KBOL/issues"
+Changelog = "https://github.com/dpalazon-dev/KBOL/blob/main/CHANGELOG.md"
+
+[project.scripts]
+kbol = "kbol.cli:main"
+[dependency-groups]
+dev = ["pytest>=8,<9"]
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+[tool.hatch.build.targets.wheel]
+packages = ["kbol"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501", "B008", "B905"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["kbol"]

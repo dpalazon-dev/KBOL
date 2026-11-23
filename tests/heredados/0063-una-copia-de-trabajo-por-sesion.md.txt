@@ -1,0 +1,49 @@
+---
+type: Decisión
+id: ADR-0063
+title: "Una copia de trabajo por sesión, y el comprobador avisa si un ID nuevo ya existe en main"
+clase: registro
+status: stable
+estado: Aceptada
+implementacion: completa
+fecha: "2026-10-30"
+ambito: sistema
+rama: Sistema
+adoptada_por: "Responsable, 30 oct 2026"
+responde_a: "QD-184"
+sustituye_a: "—"
+afecta_a: "docs/metodo.md; tools/comprobar_registros.py y sus pruebas"
+---
+
+# Una copia de trabajo por sesión, y el comprobador avisa si un ID nuevo ya existe en main
+
+* Status: accepted
+* Date: 2026-10-30
+* Deciders: Responsable (ámbito `sistema`)
+
+Registro inventado para las pruebas de KBOL: el proyecto Faro no existe.
+
+## Context and Problem Statement
+
+Dos personas que editaban la misma copia de trabajo dieron el mismo ID a dos preguntas distintas, y una sobrescribió la otra.
+
+## Considered Options
+
+* Una copia de trabajo por sesión y un aviso del comprobador cuando un ID nuevo ya existe en `main`.
+* Solo la regla de una copia de trabajo por sesión.
+
+## Decision Outcome
+
+Chosen option: «una copia por sesión y aviso del comprobador», porque la regla sola no detecta el choque cuando las ramas avanzan por separado.
+
+### Positive Consequences
+
+* Varias personas pueden trabajar a la vez sin perder registros.
+
+### Negative Consequences
+
+* El aviso solo ve `main`.
+
+## Validation
+
+Pruebas del comprobador con un repositorio temporal.

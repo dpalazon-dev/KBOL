@@ -1,0 +1,14 @@
+[
+  {
+    "installed_sha256": "fe8319799d24d5a0b8e52b76ba1c7699624d9a47df51a4012d55009146dfb61c",
+    "archivo": "KB-DPP-nucleo.md",
+    "envoltura": "Cabecera documental local; cuerpo original sin modificaciones",
+    "source_sha256": "fc23eb0bbf88e189038a20ae1ab84ca0504ade9d3f1d4e024fe3053f868fb1d4"
+  },
+  {
+    "installed_sha256": "090bc898f5b78c9ebc3082b9d6343cecb27a030ddaf9b06d80585373539813fb",
+    "archivo": "KB-DPP-implementacion.md",
+    "envoltura": "Cabecera documental local; cuerpo original sin modificaciones",
+    "source_sha256": "a7eb6fbfe6a8a7b715e0285f2755b85a67b544883b6c9c4e534857f1b6a46cce"
+  }
+]

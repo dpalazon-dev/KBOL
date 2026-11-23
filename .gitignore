@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.ruff_cache/
+.claude/worktrees/
+
+# Estado local de KBOL (relevos y verificaciones): no se versiona
+.kbol/

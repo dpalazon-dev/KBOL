@@ -1,0 +1,88 @@
+[
+  {
+    "nombre": "KB-DPP núcleo",
+    "version": "0.7",
+    "que_es": "Contrato de sistema documental y base de conocimiento: modelo de conocimiento, ingesta, tipos, estados, eventos, relaciones y errores",
+    "origen": "Contrato de David Palazón, publicado con KBOL bajo su misma licencia; huella en docs/referencias/manifest.json",
+    "consumido_por": [
+      "docs/referencias/KB-DPP-nucleo.md",
+      "docs/referencias/manifest.json",
+      "docs/elecciones.md",
+      "README.md"
+    ]
+  },
+  {
+    "nombre": "KB-DPP implementación",
+    "version": "0.8",
+    "que_es": "Guía de implementación del contrato: contrato de registros, identidad, formato, digest, vectores y escenarios de validación",
+    "origen": "Contrato de David Palazón, publicado con KBOL bajo su misma licencia; huella en docs/referencias/manifest.json",
+    "consumido_por": [
+      "docs/referencias/KB-DPP-implementacion.md",
+      "docs/referencias/manifest.json",
+      "docs/elecciones.md",
+      "README.md"
+    ]
+  },
+  {
+    "nombre": "Convenciones OKF",
+    "version": "0.2",
+    "que_es": "Convenciones de cabecera (id, type, title, description, sources, generated, verified, stale_after) que el perfil de KBOL adopta como inspiración, sin declarar compatibilidad externa total",
+    "origen": "no consta",
+    "consumido_por": [
+      "docs/elecciones.md"
+    ]
+  },
+  {
+    "nombre": "lines-v1",
+    "version": "1",
+    "que_es": "Perfil de localizador por líneas de un texto",
+    "origen": "Definido por KBOL",
+    "consumido_por": [
+      "kbol/localizador.py",
+      "kbol/citas.py"
+    ]
+  },
+  {
+    "nombre": "pdf-v1",
+    "version": "1",
+    "que_es": "Perfil de localizador por página física y región normalizada de un PDF",
+    "origen": "Definido por KBOL",
+    "consumido_por": [
+      "kbol/localizador.py",
+      "kbol/citas.py",
+      "tools/di/di/localizar.py"
+    ]
+  },
+  {
+    "nombre": "norma-v1",
+    "version": "1",
+    "que_es": "Perfil de localizador por unidad lógica de una norma",
+    "origen": "Definido por KBOL",
+    "consumido_por": [
+      "kbol/localizador.py",
+      "kbol/citas.py",
+      "tools/di/di/editor.py",
+      "tools/di/di/fidelidad.py"
+    ]
+  },
+  {
+    "nombre": "estructura-v1",
+    "version": "1",
+    "que_es": "Perfil de la representación estructurada de una norma contra la que `kbol citas` resuelve citas",
+    "origen": "Definido por KBOL; lo produce tools/di",
+    "consumido_por": [
+      "kbol/citas.py",
+      "tools/di/di/estructura.py"
+    ]
+  },
+  {
+    "nombre": "Docling",
+    "version": "2.142.1",
+    "que_es": "Procesador de documentos fijado por versión exacta en las herramientas del piloto de Document Intelligence",
+    "origen": "Paquete de PyPI, fijado en tools/di/pyproject.toml",
+    "consumido_por": [
+      "tools/di/pyproject.toml",
+      "tools/di/di/procesar.py"
+    ]
+  }
+]

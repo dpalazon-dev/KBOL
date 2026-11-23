@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.py text eol=lf
+
+# Contrato KB-DPP conservado con su huella: sin normalizar saltos de línea
+docs/referencias/** -text

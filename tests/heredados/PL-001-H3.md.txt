@@ -1,0 +1,38 @@
+---
+type: Hito
+id: PL-001-H3
+title: "Datos personales en los avisos"
+clase: registro
+status: draft
+estado: Pendiente
+responsable: Equipo de avisos
+depende_de: ["PL-001-H2"]
+cierra: ["QD-054", "QD-056", "QD-057"]
+avanza: ["QD-005"]
+pone_a_prueba: "—"
+produce: "—"
+evidencia: "—"
+---
+
+# PL-001-H3 · Datos personales en los avisos
+
+## Objetivo
+
+Que el módulo de avisos no guarde correos fuera de la ficha del lector.
+
+## Alcance
+
+El registro de envíos y sus copias.
+
+## Verificación
+
+Una prueba que busca correos en el registro de envíos y no encuentra ninguno.
+
+## Tareas
+
+* Guardar solo el identificador del lector.
+* Borrar los correos de los registros existentes.
+
+## Notas
+
+Registro inventado para las pruebas de KBOL.

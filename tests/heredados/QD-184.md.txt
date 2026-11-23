@@ -1,0 +1,20 @@
+---
+type: Pregunta
+id: QD-184
+title: "IDs repetidos entre sesiones: ¿cómo se evita que dos sesiones den el mismo ID a registros distintos?"
+clase: registro
+status: deprecated
+tipo: Decisión
+opciones: "a) Una copia de trabajo por sesión y un aviso del comprobador frente a main · b) Solo la regla de una copia por sesión"
+desbloquea: "Que varias personas trabajen a la vez sin perder registros"
+responde: Responsable
+ambito: sistema
+rama: Sistema
+depende_de: "—"
+estado: Resuelta (ADR-0063)
+origen: "Sesión del 30 oct 2026: dos personas en la misma copia de trabajo"
+resuelta_por: ADR-0063
+evidencia: ["30 oct 2026: una pregunta sobrescribió a otra con el mismo ID", "la pregunta perdida se recuperó con otro ID"]
+---
+
+# QD-184 · IDs repetidos entre sesiones: ¿cómo se evita que dos sesiones den el mismo ID a registros distintos?

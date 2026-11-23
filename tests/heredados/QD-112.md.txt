@@ -1,0 +1,21 @@
+---
+type: Pregunta
+id: QD-112
+title: "Dos pruebas del préstamo fallan porque esperan el formato antiguo de la fecha de devolución"
+clase: registro
+status: deprecated
+tipo: Conflicto
+con_que: El formato de fecha posterior a ADR-0009
+efecto: "La suite del préstamo no está en verde y no sirve de puerta de calidad"
+responde: Equipo de préstamo
+ambito: producto
+rama: Calidad
+depende_de: QD-029
+estado: Descartada (duplicada de QD-133, que reproduce los mismos dos fallos)
+origen: "Revisión de pruebas, 2026-10-13"
+resuelta_por: Descartada
+confianza: media
+evidencia: ["tests/test_prestamo.py:40", "tests/test_prestamo.py:52"]
+---
+
+# QD-112 · Dos pruebas del préstamo fallan porque esperan el formato antiguo de la fecha de devolución
